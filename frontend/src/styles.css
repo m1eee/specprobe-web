@@ -1,0 +1,205 @@
+:root {
+    --primary-dark: #1a237e;
+    --primary: #283593;
+    --primary-light: #5c6bc0;
+    --accent: #ff4081;
+    --light-bg: #f8f9fa;
+    --dark-text: #212529;
+}
+
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e7f1 100%);
+    color: var(--dark-text);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+}
+
+.navbar {
+    background: linear-gradient(to right, var(--primary-dark), var(--primary));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: none;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background: linear-gradient(to right, var(--primary), var(--primary-light));
+    color: white;
+    font-weight: 600;
+    border-bottom: none;
+    padding: 1rem 1.5rem;
+}
+
+.dashboard-header {
+    background: linear-gradient(rgba(40, 53, 147, 0.9), rgba(26, 35, 126, 0.9)), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23283593"/><path d="M0 50 L100 50 M50 0 L50 100" stroke="%231a237e" stroke-width="2"/></svg>');
+    color: white;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 20px 20px;
+}
+
+.vulnerability-card {
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+}
+
+.status-safe { border-left-color: #4CAF50; }
+.status-vulnerable { border-left-color: #F44336; }
+.status-unknown { border-left-color: #FFC107; }
+
+.status-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+}
+
+.badge-safe { background-color: #E8F5E9; color: #2E7D32; }
+.badge-vulnerable { background-color: #FFEBEE; color: #C62828; }
+.badge-unknown { background-color: #FFF8E1; color: #F57F17; }
+
+.system-card {
+    background: white;
+    border-top: 4px solid var(--primary);
+}
+
+.stat-card {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary);
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    padding:1rem;
+}
+
+.btn-primary {
+    background: linear-gradient(to right, var(--primary), var(--primary-dark));
+    border: none;
+    border-radius: 30px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+}
+
+.btn-outline-primary {
+    color: var(--primary);
+    border-color: var(--primary);
+    border-radius: 30px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.upload-area {
+    border: 2px dashed #cbd5e0;
+    border-radius: 12px;
+    padding: 3rem;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.7);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover {
+    background-color: rgba(245, 247, 250, 0.9);
+    border-color: var(--primary);
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.8rem;
+    margin: 0 auto 1.5rem;
+}
+
+footer {
+    background: var(--primary-dark);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 2rem 0;
+    margin-top: 3rem;
+}
+
+.cpu-kernel-table th {
+    background-color: var(--primary);
+    color: white;
+}
+
+.vulnerability-progress {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #e9ecef;
+}
+
+.progress-bar-safe {
+    background-color: #4CAF50;
+}
+
+.progress-bar-vulnerable {
+    background-color: #F44336;
+}
+
+
+/* 新增的滚动条样式控制 */
+.cpu-kernel-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* 优化移动端滚动体验 */
+}
+
+/* 可选：自定义滚动条样式 */
+.cpu-kernel-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.cpu-kernel-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.cpu-kernel-scroll::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.cpu-kernel-scroll::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+
+  
+    
