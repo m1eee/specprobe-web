@@ -11,4 +11,5 @@ urlpatterns = [
 
 urlpatterns = [
     path("api/import-report/", import_report),
+    path("api/device-vuln/<str:mac>/", core_views.device_vuln_detail),
 ]

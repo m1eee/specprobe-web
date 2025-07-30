@@ -24,16 +24,6 @@
             <li><a href="#" class="text-white-50">漏洞数据库</a></li>
           </ul>
         </div>
-
-        <!-- 联系方式 -->
-        <div class="col-md-4">
-          <h5 class="text-white mb-3">联系我们</h5>
-          <ul class="list-unstyled">
-            <li class="mb-2"><i class="fas fa-envelope me-2" /> support@SpecProbe.com</li>
-            <li class="mb-2"><i class="fas fa-phone me-2" /> +86 188 4846 2817</li>
-            <li><i class="fas fa-map-marker-alt me-2" /> 武汉大学 网络安全学院</li>
-          </ul>
-        </div>
       </div>
 
       <hr class="bg-light my-4" />

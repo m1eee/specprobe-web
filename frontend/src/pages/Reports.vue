@@ -46,7 +46,7 @@
                 </td>
                 <td><small class="text-muted">{{ report.report_time }}</small></td>
                 <td>
-                  <button class="btn btn-sm btn-outline-primary">
+                  <button @click="openDetail(report.mac)" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-eye" /> 查看详情
                   </button>
                 </td>
@@ -56,7 +56,40 @@
         </div>
       </div>
     </div>
+    <div v-if="showDetail" class="modal-mask" @click.self="showDetail=false">
+      <div class="dialog">
+        <header class="dialog-header">
+          <h3>漏洞详情 - MAC:{{ selectedMac }}</h3>
+          <button class="close" @click="showDetail=false">×</button>
+        </header>
 
+        <section class="dialog-body">
+          <div v-if="loading">加载中...</div>
+          <div v-else-if="errorMsg" class="error">{{ errorMsg }}</div>
+          <table v-else class="cve-table">
+            <thead>
+              <tr>
+                <th>CVE</th>
+                <th>详情</th>
+                <th>风险</th>
+                <th>风险报告</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in cves" :key="row.cve">
+                <td>{{ row.cve }}</td>
+                <td>{{ nameOf(row.cve) }}</td>
+                <td>
+                  <span v-if="row.affected " class="badge bg-danger">受影响</span>
+                  <span v-else class="badge bg-success">安全</span>
+                </td>
+                <td style="white-space: pre-wrap;">{{ row.info }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
     <!-- CVE 防护情况汇总表 -->
     <div class="card">
       <div
@@ -383,6 +416,52 @@ watch(pageSize, () => {
 watchEffect(() => {
   if (page.value > totalPages.value) page.value = totalPages.value
 })
+
+// ===== CVE 详情 =====
+const showDetail = ref(false)
+const loading = ref(false)
+const errorMsg = ref('')
+const selectedMac = ref('')
+const cves = ref([]) // [{ cve, affected, info }, ...]
+const CVE_NAME = {
+  "CVE-2017-5753":"Spectre变体1 (边界检查绕过)",
+  "CVE-2017-5715":"Spectre变体2 (分支目标注入)",
+  "CVE-2017-5754":"Meltdown (恶意数据缓存加载)",
+  "CVE-2018-3640":"变体3A (恶意系统寄存器读取)",
+  "CVE-2018-3639":"变体4 (推测存储绕过)",
+  "CVE-2018-3615":"L1TF SGX (L1终端故障 - SGX)",
+  "CVE-2018-3620":"L1TF OS (L1终端故障 - 操作系统)",
+  "CVE-2018-3646":"L1TF VMM (L1终端故障 - 虚拟机监视器)",
+  "CVE-2018-12126":"MSBDS (微架构存储缓冲区数据采样)",
+  "CVE-2018-12130":"MFBDS (微架构填充缓冲区数据采样)",
+  "CVE-2018-12127":"MLPDS (微架构加载端口数据采样)",
+  "CVE-2019-11091":"MDSUM (微架构数据采样无缓存内存)",
+  "CVE-2019-11135":"TAA (TSX异步中止)",
+  "CVE-2018-12207":"ITLBMH (指令TLB多级页表)",
+  "CVE-2020-0543":"SRBDS (特殊寄存器缓冲区数据采样)",
+  "CVE-2023-20593":"Zenbleed (AMD Zen2架构漏洞)",
+  "CVE-2022-40982":"Downfall (收集数据采样)",
+  "CVE-2023-20569":"Inception (AMD推测执行漏洞)",
+  "CVE-2023-23583":"Reptar (Intel序列化指令漏洞)",
+  "CVE-2022-4543":"EntryBleed (KASLR绕过)",
+}
+const nameOf = (cve) => CVE_NAME[cve] || ''
+async function openDetail(mac) {
+  showDetail.value = true
+  loading.value = true
+  errorMsg.value = ''
+  selectedMac.value = mac
+  try {
+    const { data } = await axios.get(`/api/device-vuln/${encodeURIComponent(mac)}/`)
+    cves.value = data.cves || []
+    console.log('open detail', cves.value)
+  } catch (e) {
+    errorMsg.value = e?.response?.data?.detail || e.message || '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
 
 onMounted(fetchData)
 </script>

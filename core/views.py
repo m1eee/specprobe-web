@@ -2,23 +2,84 @@ from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.core.files.storage import default_storage
-from django.conf import settings
 from pathlib import Path
 from .utils import calculate_protection_stats
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 import json
-from core.models import MachineReport
+from core.models import MachineReport, DeviceVulnSnapshot
 from django.http import JsonResponse, HttpResponseNotAllowed
-from core.utils import calculate_protection_stats  # 你的统计函数
+from core.utils import calculate_protection_stats 
 from django.utils import timezone
 from .serializers import MachineReportSerializer
+from django.shortcuts import get_object_or_404
+
 REQUIRED_FIELDS = [
     "mac", "status", "cpu", "kernel", "os", "architecture",
     "vuln_count", "risk_count", "time"
 ]
-
+CVE_TO_FIELD = {
+    "CVE-2017-5753": "cve_2017_5753",
+    "CVE-2017-5715": "cve_2017_5715",
+    "CVE-2017-5754": "cve_2017_5754",
+    "CVE-2018-3640": "cve_2018_3640",
+    "CVE-2018-3639": "cve_2018_3639",
+    "CVE-2018-3615": "cve_2018_3615",
+    "CVE-2018-3620": "cve_2018_3620",
+    "CVE-2018-3646": "cve_2018_3646",
+    "CVE-2018-12126": "cve_2018_12126",
+    "CVE-2018-12130": "cve_2018_12130",
+    "CVE-2018-12127": "cve_2018_12127",
+    "CVE-2019-11091": "cve_2019_11091",
+    "CVE-2019-11135": "cve_2019_11135",
+    "CVE-2018-12207": "cve_2018_12207",
+    "CVE-2020-0543":  "cve_2020_0543",
+    "CVE-2023-20593": "cve_2023_20593",
+    "CVE-2022-40982": "cve_2022_40982",
+    "CVE-2022-4543":"cve_2022_4543",
+    "CVE-2023-20569": "cve_2023_20569",
+    "CVE-2023-23583": "cve_2023_23583",
+}
+CVE_TO_INFO_FIELD = {
+    "CVE-2017-5753": "cve_2017_5753_info",
+    "CVE-2017-5715": "cve_2017_5715_info",
+    "CVE-2017-5754": "cve_2017_5754_info",
+    "CVE-2018-3640": "cve_2018_3640_info",
+    "CVE-2018-3639": "cve_2018_3639_info",
+    "CVE-2018-3615": "cve_2018_3615_info",
+    "CVE-2018-3620": "cve_2018_3620_info",
+    "CVE-2018-3646": "cve_2018_3646_info",
+    "CVE-2018-12126": "cve_2018_12126_info",
+    "CVE-2018-12130": "cve_2018_12130_info",
+    "CVE-2018-12127": "cve_2018_12127_info",
+    "CVE-2019-11091": "cve_2019_11091_info",
+    "CVE-2019-11135": "cve_2019_11135_info",
+    "CVE-2018-12207": "cve_2018_12207_info",
+    "CVE-2020-0543":  "cve_2020_0543_info",
+    "CVE-2023-20593": "cve_2023_20593_info",
+    "CVE-2022-40982": "cve_2022_40982_info",
+    "CVE-2022-4543":"cve_2022_4543_info",
+    "CVE-2023-20569": "cve_2023_20569_info",
+    "CVE-2023-23583": "cve_2023_23583_info",
+}
+def upsert_vuln_snapshot(mac: str, vulns: list[dict]):
+    """
+    将前端传来的 20 项漏洞数组打存到宽表
+    """
+    defaults = {}
+    for it in vulns or []:
+        cve = (it.get("CVE") or "").strip().upper()
+        field = CVE_TO_FIELD.get(cve)
+        info_field = CVE_TO_INFO_FIELD.get(cve)
+        if not field:
+            # 未在 20 列白名单中的 CVE，忽略或写日志
+            continue
+        defaults[field] = True if it.get("VULNERABLE") is True else False
+        if info_field:
+            defaults[info_field] = (it.get("INFOS") or "").strip()
+    # 未给出的列保持 NULL（未知）
+    DeviceVulnSnapshot.objects.update_or_create(mac=mac, defaults=defaults)
+    
 def _parse_time(value):
     """把 time 转成有时区的 datetime（兼容 ISO8601 / 'YYYY-MM-DD HH:MM:SS' / 时间戳）"""
     if isinstance(value, (int, float)):  # unix 时间戳（秒）
@@ -44,6 +105,8 @@ def _normalize_item(data: dict) -> dict:
     """字段标准化 + 基本校验"""
     row = dict(data)
     row.pop("id", None)  # 不允许外部 id 覆盖自增主键
+    row.pop("vulns", None)
+    row.pop("vulnerabilities", None)
     missing = [k for k in REQUIRED_FIELDS if k not in row]
     if missing:
         raise ValueError(f"缺少必需字段: {', '.join(missing)}")
@@ -125,13 +188,22 @@ def import_report(request):
 
     for idx, item in enumerate(items):
         try:
-            row = _normalize_item(item)
+            # 1) 先处理 MachineReport（你已有的逻辑）
+            row = _normalize_item(item)  # 会校验 REQUIRED_FIELDS 和解析 time
             lookup = {"mac": row["mac"], "time": row["time"]}
             defaults = {k: v for k, v in row.items() if k not in lookup}
             obj, created = MachineReport.objects.update_or_create(**lookup, defaults=defaults)
-            results.append({"index": idx, "id": obj.id, "mac": obj.mac, "created": created})
             created_count += int(created)
             updated_count += int(not created)
+
+            # 2) 然后同步快照表（如果 payload 带了 20 项漏洞数组）
+            # 兼容 key: "vulns" 或 "vulnerabilities"
+            vulns = item.get("vulns") or item.get("vulnerabilities")
+            if vulns is not None:
+                upsert_vuln_snapshot(mac=row["mac"], vulns=vulns)
+
+            results.append({"index": idx, "id": obj.id, "mac": obj.mac, "created": created})
+
         except Exception as e:
             errors.append({"index": idx, "error": str(e)})
 
@@ -143,3 +215,29 @@ def import_report(request):
         "results": results,
         "errors": errors
     }, status=http_status)
+    
+    
+FIELD_TO_CVE = {v: k for k, v in CVE_TO_FIELD.items()}
+
+@api_view(["GET"])
+def device_vuln_detail(request, mac: str):
+    """返回某设备（mac）的 20 个 CVE 状态与 info"""
+    obj = get_object_or_404(DeviceVulnSnapshot, pk=mac)
+
+    # 收集所有 cve_* 布尔列与配套 *_info
+    cve_rows = []
+    for field_name, cve_id in FIELD_TO_CVE.items():
+        affected = getattr(obj, field_name, False)
+        info_field = f"{field_name}_info"
+        info_text = getattr(obj, info_field, "")
+        cve_rows.append({
+            "cve": cve_id,           # 例如 "CVE-2017-5715"
+            "affected": bool(affected),
+            "info": info_text or "",
+        })
+
+    return Response({
+        "mac": obj.mac,
+        "cves": cve_rows,           # 前端直接渲染表格即可
+        "updated_at": getattr(obj, "updated_at", None),
+    })
