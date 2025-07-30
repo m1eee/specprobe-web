@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -137,3 +137,8 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+
+# 供Firefox三个CSV使用的固定目录
+FIREFOX_DATA_DIR = os.path.join(MEDIA_ROOT, 'firefox')
+os.makedirs(FIREFOX_DATA_DIR, exist_ok=True)

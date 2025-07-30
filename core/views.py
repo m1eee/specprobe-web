@@ -13,6 +13,11 @@ from core.utils import calculate_protection_stats
 from django.utils import timezone
 from .serializers import MachineReportSerializer
 from django.shortcuts import get_object_or_404
+import csv
+import io
+import os
+from django.conf import settings
+
 
 REQUIRED_FIELDS = [
     "mac", "status", "cpu", "kernel", "os", "architecture",
@@ -241,3 +246,165 @@ def device_vuln_detail(request, mac: str):
         "cves": cve_rows,           # 前端直接渲染表格即可
         "updated_at": getattr(obj, "updated_at", None),
     })
+    
+    
+    
+    
+# ==== 攻击演示相关 ==== #
+BOOKMARK_NAME = "firefox_bookmark.csv"
+COOKIE_NAME   = "firefox_cookie.csv"
+HISTORY_NAME  = "firefox_history.csv"
+
+def _save_uploaded_file(f, dest_dir, expect_name):
+    """
+    安全地保存文件到 dest_dir/expect_name
+    - 忽略客户端原始文件名，强制按 expect_name 保存
+    - 仅允许 .csv
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+    # 写入：二进制方式，覆盖
+    dest_path = os.path.join(dest_dir, expect_name)
+    with open(dest_path, "wb") as out:
+        for chunk in f.chunks():
+            out.write(chunk)
+    return dest_path
+
+def _read_csv_dicts(path):
+    """
+    读取 CSV 为 list[dict]，自动处理 UTF-8 带 BOM。
+    空缺或文件不存在时返回 []。
+    """
+    if not os.path.exists(path):
+        return []
+    with open(path, "rb") as f:
+        raw = f.read()
+    # 以 utf-8-sig 解码去除 BOM；如果解码失败，再退回 gbk 尝试
+    text = None
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            text = raw.decode("gbk")
+        except UnicodeDecodeError:
+            text = raw.decode("utf-8", errors="ignore")
+    # 用标准库 csv 解析
+    reader = csv.DictReader(io.StringIO(text))
+    rows = []
+    for row in reader:
+        # 去掉键和值两端的空格
+        clean = { (k.strip() if k else k): (v.strip() if isinstance(v, str) else v)
+                  for k, v in row.items() }
+        rows.append(clean)
+    return rows
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def firefox_upload(request):
+    """
+    接收 3 个 CSV（字段名任一）：
+    - firefox_bookmark.csv -> 保存为 固定名 firefox_bookmark.csv
+    - firefox_cookie.csv   -> 保存为 固定名 firefox_cookie.csv
+    - firefox_history.csv  -> 保存为 固定名 firefox_history.csv
+
+    你可以一次传 1~3 个；已存在将被覆盖。
+    可选：提供 ?subdir=<mac> 把文件保存到 uploads/firefox/<mac>/ 目录（更好隔离多设备）。
+    """
+    dest_dir = getattr(settings, "FIREFOX_DATA_DIR", None) or os.path.join(settings.MEDIA_ROOT, "firefox")
+    subdir = request.GET.get("subdir")  # 可选：例如 mac 地址
+    if subdir:
+        # 简单清理，防目录穿越
+        subdir = subdir.replace("/", "_").replace("\\", "_")
+        dest_dir = os.path.join(dest_dir, subdir)
+
+    files = request.FILES
+    saved = []
+
+    # 允许多种字段名映射（便于客户端传参）
+    candidates = {
+        BOOKMARK_NAME: [ "bookmark", "bookmarks", "firefox_bookmark", BOOKMARK_NAME ],
+        COOKIE_NAME:   [ "cookie", "cookies", "firefox_cookie", COOKIE_NAME ],
+        HISTORY_NAME:  [ "history", "histories", "firefox_history", HISTORY_NAME ],
+    }
+
+    for expect_name, keys in candidates.items():
+        fobj = None
+        for key in keys:
+            if key in files:
+                fobj = files[key]
+                break
+        if fobj is not None:
+            # 简单检查扩展名
+            if not fobj.name.lower().endswith(".csv"):
+                return JsonResponse({"detail": f"文件 {fobj.name} 不是 CSV"}, status=400)
+            path = _save_uploaded_file(fobj, dest_dir, expect_name)
+            saved.append(os.path.relpath(path, settings.BASE_DIR))
+
+    if not saved:
+        return JsonResponse({"detail": "未找到任何 CSV。请使用字段 bookmark/cookie/history（或固定文件名字段）。"}, status=400)
+
+    return JsonResponse({"ok": True, "saved": saved}, status=201)
+
+
+@api_view(["GET"])
+def firefox_data(request):
+    """
+    读取保存目录中的三种 CSV 并返回 JSON。
+    可选查询参数：?subdir=<mac> 读取子目录中的数据。
+    """
+    base_dir = getattr(settings, "FIREFOX_DATA_DIR", None) or os.path.join(settings.MEDIA_ROOT, "firefox")
+    subdir = request.GET.get("subdir")
+    if subdir:
+        subdir = subdir.replace("/", "_").replace("\\", "_")
+        base_dir = os.path.join(base_dir, subdir)
+
+    bookmark_rows = _read_csv_dicts(os.path.join(base_dir, BOOKMARK_NAME))
+    cookie_rows   = _read_csv_dicts(os.path.join(base_dir, COOKIE_NAME))
+    history_rows  = _read_csv_dicts(os.path.join(base_dir, HISTORY_NAME))
+
+    # 规范化字段名（前端更好用）——根据你给的样例字段
+    # 书签
+    bookmarks = [
+        {
+            "id": r.get("ID") or r.get("Id") or r.get("id"),
+            "name": r.get("Name") or r.get("Title") or "",
+            "type": r.get("Type") or "",
+            "url": r.get("URL") or r.get("Url") or "",
+            "date_added": r.get("DateAdded") or r.get("CreatedDate") or ""
+        } for r in bookmark_rows
+    ]
+    # Cookie
+    def _to_bool(x):
+        if x is None: return False
+        s = str(x).strip().lower()
+        return s in ("true", "t", "1", "yes", "y")
+    cookies = [
+        {
+            "host": r.get("Host") or "",
+            "path": r.get("Path") or "",
+            "key_name": r.get("KeyName") or r.get("Name") or "",
+            "value": r.get("Value") or "",
+            "is_secure": _to_bool(r.get("IsSecure")),
+            "is_http_only": _to_bool(r.get("IsHTTPOnly")),
+            "has_expire": _to_bool(r.get("HasExpire")),
+            "is_persistent": _to_bool(r.get("IsPersistent")),
+            "create_date": r.get("CreateDate") or "",
+            "expire_date": r.get("ExpireDate") or "",
+        } for r in cookie_rows
+    ]
+    # 历史
+    histories = [
+        {
+            "title": r.get("Title") or "",
+            "url": r.get("URL") or r.get("Url") or "",
+            "visit_count": int(r.get("VisitCount") or 0),
+            "last_visit_time": r.get("LastVisitTime") or ""
+        } for r in history_rows
+    ]
+
+    return JsonResponse({
+        "ok": True,
+        "bookmark": bookmarks,
+        "cookie": cookies,
+        "history": histories,
+        "base_dir": base_dir,   # 便于调试/确认目录
+    }, json_dumps_params={"ensure_ascii": False})

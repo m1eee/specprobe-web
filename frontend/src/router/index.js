@@ -13,6 +13,7 @@ export default createRouter({
     { path: '/charts', component: Charts },
     { path: '/reports', component: Reports },
     { path: '/results', component: Results },
-    { path: '/settings', component: Settings }
+    { path: '/settings', component: Settings },
+    { path: '/firefox', component: () => import('@/pages/FirefoxData.vue') },
   ]
 });

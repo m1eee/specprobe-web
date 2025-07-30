@@ -7,6 +7,37 @@
         <span>历史检测报告</span>
       </div>
       <div class="card-body">
+      <!-- 工具条：排序 + 顺序 + 搜索 -->
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+        <span class="text-muted small me-2">排序：</span>
+
+        <select v-model="historySortKey" class="form-select form-select-sm w-auto">
+          <option value="id">报告ID</option>
+          <option value="mac">MAC</option>
+          <option value="cpu">CPU</option>
+          <option value="architecture">架构</option>
+          <option value="kernel">内核</option>
+          <option value="vuln_count">漏洞总数</option>
+          <option value="risk_count">风险漏洞</option>
+          <option value="report_time">检测时间</option>
+        </select>
+
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                @click="toggleHistorySortOrder">
+          <i :class="historySortOrder === 'asc' ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"></i>
+          {{ historySortOrder === 'asc' ? '正序' : '逆序' }}
+        </button>
+
+        <!-- 搜索框-->
+        <div class="ms-auto flex-grow-1" style="max-width: 600px;">
+          <input v-model.trim="historyQuery"
+                type="text"
+                class="form-control"
+                placeholder="按 ID / MAC / CPU / 架构 / 内核 / 时间 关键字搜索" />
+        </div>
+      </div>
+
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
@@ -23,7 +54,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="report in reports" :key="report.id">
+              <tr v-for="report in historyPagedReports" :key="report.id">
                 <td><span class="badge bg-primary">{{ report.id }}</span></td>
                 <td>
                   <i class="fas fa-file-alt me-1 text-muted" />{{ report.mac }}
@@ -54,6 +85,41 @@
             </tbody>
           </table>
         </div>
+        <!-- 分页条（历史检测报告） -->
+        <nav class="d-flex flex-wrap justify-content-between align-items-center mt-3">
+          <!-- 左侧统计 -->
+          <div class="text-muted small mb-2 mb-md-0">
+            共 {{ historySortedReports.length }} 条，页 {{ historyPage }} / {{ historyTotalPages }}
+          </div>
+
+          <!-- 右侧控件：页码 + 每页条数 -->
+          <div class="d-flex align-items-center gap-2">
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item" :class="{ disabled: historyPage === 1 }">
+                <a class="page-link" href="javascript:void(0)"
+                  @click="historyPage > 1 && (historyPage = historyPage - 1)">上一页</a>
+              </li>
+
+              <li v-for="p in historyPagesToShow" :key="p"
+                  class="page-item" :class="{ active: p === historyPage }">
+                <a class="page-link" href="javascript:void(0)" @click="historyPage = p">{{ p }}</a>
+              </li>
+
+              <li class="page-item" :class="{ disabled: historyPage === historyTotalPages }">
+                <a class="page-link" href="javascript:void(0)"
+                  @click="historyPage < historyTotalPages && (historyPage = historyPage + 1)">下一页</a>
+              </li>
+            </ul>
+
+            <!-- 每页条数（与下方卡片保持一致） -->
+            <select v-model.number="historyPageSize" class="form-select form-select-sm w-auto">
+              <option :value="6">每页 6</option>
+              <option :value="12">每页 12</option>
+              <option :value="24">每页 24</option>
+            </select>
+          </div>
+        </nav>
+
       </div>
     </div>
     <div v-if="showDetail" class="modal-mask" @click.self="showDetail=false">
@@ -166,7 +232,14 @@
             :key="machine.id"
             class="col-md-4 col-lg-2 mb-3"
           >
-            <div class="card border-0 bg-light h-100">
+            <div
+              class="card border-0 bg-light h-100 machine-card"
+              role="button"
+              tabindex="0"
+              @click="openDetail(macOf(machine))"
+              @keydown.enter.prevent="openDetail(macOf(machine))"
+              @keydown.space.prevent="openDetail(macOf(machine))"
+            >
               <div class="card-body p-3">
                 <div class="d-flex align-items-center mb-2">
                   <i class="fas fa-desktop text-primary me-2" />
@@ -461,6 +534,101 @@ async function openDetail(mac) {
     loading.value = false
   }
 }
+// ====== 历史检测报告：搜索 / 排序 / 分页 ======
+const historyQuery = ref('')
+const historySortKey = ref('report_time')  // 默认按时间
+const historySortOrder = ref('desc')       // 默认逆序（最新在前）
+
+const HISTORY_SORT_GETTERS = {
+  id:           (r) => Number(r.id ?? 0),
+  mac:          (r) => r.mac || '',
+  cpu:          (r) => r.cpu || '',
+  architecture: (r) => r.architecture || '',
+  kernel:       (r) => r.kernel || '',
+  vuln_count:   (r) => Number(r.vuln_count ?? 0),
+  risk_count:   (r) => Number(r.risk_count ?? 0),
+  report_time:  (r) => r.report_time || r.time || ''  // 接口里哪个有就用哪个
+}
+
+const historyFilteredReports = computed(() => {
+  if (!historyQuery.value) return reports.value
+  const q = historyQuery.value.toLowerCase()
+  return reports.value.filter(r => {
+    return [
+      String(r.id ?? '').toLowerCase(),
+      (r.mac || '').toLowerCase(),
+      (r.cpu || '').toLowerCase(),
+      (r.architecture || '').toLowerCase(),
+      (r.kernel || '').toLowerCase(),
+      String(r.report_time || r.time || '').toLowerCase()
+    ].some(v => v.includes(q))
+  })
+})
+
+function toggleHistorySortOrder () {
+  historySortOrder.value = historySortOrder.value === 'asc' ? 'desc' : 'asc'
+}
+
+const historySortedReports = computed(() => {
+  const getter = HISTORY_SORT_GETTERS[historySortKey.value] || HISTORY_SORT_GETTERS.report_time
+  const arr = historyFilteredReports.value.slice()
+
+  const numericKeys = new Set(['id', 'vuln_count', 'risk_count'])
+  arr.sort((a, b) => {
+    const av = getter(a)
+    const bv = getter(b)
+    let cmp
+    if (numericKeys.has(historySortKey.value)) {
+      cmp = (av - bv) || 0
+    } else {
+      cmp = String(av).toLowerCase().localeCompare(String(bv).toLowerCase(), 'zh')
+    }
+    return historySortOrder.value === 'asc' ? cmp : -cmp
+  })
+  return arr
+})
+
+// 分页
+const historyPage = ref(1)
+const historyPageSize = ref(6)
+
+const historyTotalPages = computed(() => {
+  const total = historySortedReports.value.length
+  return Math.max(1, Math.ceil(total / historyPageSize.value))
+})
+
+const historyPagedReports = computed(() => {
+  const start = (historyPage.value - 1) * historyPageSize.value
+  const end = start + historyPageSize.value
+  return historySortedReports.value.slice(start, end)
+})
+
+const historyPagesToShow = computed(() => {
+  const t = historyTotalPages.value
+  const cur = historyPage.value
+  const win = 5
+  let start = Math.max(1, cur - Math.floor(win / 2))
+  let end = Math.min(t, start + win - 1)
+  start = Math.max(1, end - win + 1)
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+})
+
+// 变化时回到第一页
+watch([historyQuery, historySortKey, historySortOrder], () => {
+  historyPage.value = 1
+})
+watch(historyPageSize, () => {
+  historyPage.value = 1
+})
+watchEffect(() => {
+  if (historyPage.value > historyTotalPages.value) {
+    historyPage.value = historyTotalPages.value
+  }
+})
+
+
+// 机器对象里 MAC 字段可能有不同命名，这里做个兜底
+const macOf = (m) => m?.mac || m?.mac_address || m?.MAC || ''
 
 
 onMounted(fetchData)
