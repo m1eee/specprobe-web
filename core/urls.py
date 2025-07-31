@@ -12,6 +12,6 @@ urlpatterns = [
 urlpatterns = [
     path("api/import-report/", import_report),
     path("api/device-vuln/<str:mac>/", core_views.device_vuln_detail),
-    path("api/firefox/upload/", core_views.firefox_upload),
-    path("api/firefox/data/", core_views.firefox_data),
+    path("api/attack/upload/", core_views.attack_upload),
+    path("api/attack/data/", core_views.attack_data),
 ]

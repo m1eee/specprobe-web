@@ -3,8 +3,8 @@
     <div class="container">
       <!-- Logo -->
       <RouterLink to="/" class="navbar-brand d-flex align-items-center">
-        <i class="fas fa-shield-alt fa-2x me-2" />
-        <span class="fw-bold">SpecProbe</span>
+        <i class="fas fa-bomb fa-2x me-2" aria-hidden="true" />
+        <span class="fw-bold">SpecProbe-Attack</span>
       </RouterLink>
 
       <!-- Collapse button (mobile) -->
@@ -20,13 +20,17 @@
       <!-- Links -->
       <div class="collapse navbar-collapse" id="navMain">
         <ul class="navbar-nav ms-auto">
-          <li v-for="item in nav" :key="item.path" class="nav-item">
+          <li
+            v-for="item in nav"
+            :key="item.path"
+            class="nav-item"
+          >
             <RouterLink
               :to="item.path"
               class="nav-link d-flex align-items-center"
-              :active-class="item.exact ? '' : 'active fw-bold'"
-              :exact-active-class="item.exact ? 'active fw-bold' : ''"
-              > <!-- 删除无效的 exact 属性 -->
+              active-class="active fw-bold"
+              exact
+            >
               <i :class="[item.icon, 'me-1']" /> {{ item.label }}
             </RouterLink>
           </li>
@@ -39,7 +43,7 @@
 <script setup>
 // 顶栏导航配置
 const nav = [
-  { path: '/', label: '首页', icon: 'fas fa-home' ,exact: true},
+  { path: '/', label: '首页', icon: 'fas fa-home' },
   { path: '/upload', label: '上传报告', icon: 'fas fa-upload' },
   { path: '/reports', label: '报告列表', icon: 'fas fa-list' },
   { path: '/charts', label: '分析图表', icon: 'fas fa-chart-bar' },
@@ -47,4 +51,10 @@ const nav = [
 ]
 </script>
 
+<style scoped>
+.navbar {
+    background: linear-gradient(to right, #e65100, #ffa726);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+</style>
 

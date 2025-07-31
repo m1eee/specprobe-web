@@ -299,7 +299,7 @@ def _read_csv_dicts(path):
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
-def firefox_upload(request):
+def attack_upload(request):
     """
     接收 3 个 CSV（字段名任一）：
     - firefox_bookmark.csv -> 保存为 固定名 firefox_bookmark.csv
@@ -346,7 +346,7 @@ def firefox_upload(request):
 
 
 @api_view(["GET"])
-def firefox_data(request):
+def attack_data(request):
     """
     读取保存目录中的三种 CSV 并返回 JSON。
     可选查询参数：?subdir=<mac> 读取子目录中的数据。

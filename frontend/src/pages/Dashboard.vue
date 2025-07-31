@@ -150,98 +150,6 @@
       </div>
     </div>
 
-    <!-- 漏洞列表 -->
-    <div class="row">
-      <div class="col-12">
-        <div class="card">
-          <div class="card-header d-flex align-items-center">
-            <i class="fas fa-list me-2" />
-            <span>CVE漏洞检测结果</span>
-          </div>
-          <div class="card-body">
-            <div class="d-flex justify-content-between mb-3">
-              <div>
-                <div class="vulnerability-progress w-100 mb-2">
-                  <div
-                    class="progress-bar progress-bar-safe"
-                    style="width: 85%"
-                  />
-                  <div
-                    class="progress-bar progress-bar-vulnerable"
-                    style="width: 15%"
-                  />
-                </div>
-                <div class="d-flex">
-                  <div class="me-3">
-                    <span class="badge bg-success me-1">■</span> 平均防护率: 85%
-                  </div>
-                  <div>
-                    <span class="badge bg-danger me-1">■</span> 存在风险: 15%
-                  </div>
-                </div>
-              </div>
-              <div>
-                <input
-                  v-model="search"
-                  type="text"
-                  class="form-control"
-                  placeholder="搜索CVE..."
-                />
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>CVE 编号</th>
-                    <th>漏洞名称</th>
-                    <th>防护机器数</th>
-                    <th>防护率</th>
-                    <th>CVSS 评分</th>
-                    <th>详情</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="vuln in filteredCveData"
-                    :key="vuln.cve"
-                  >
-                    <td><strong>{{ vuln.cve }}</strong></td>
-                    <td>{{ vuln.name }}</td>
-                    <td>
-                      <span class="badge bg-info">{{ vuln.protected }}/{{
-                        vuln.total
-                      }}</span>
-                    </td>
-                    <td>
-                      <span
-                        class="badge"
-                        :class="protectionBadgeClass(vuln.protectionRate)"
-                        >{{ vuln.protectionRate }}%</span
-                      >
-                    </td>
-                    <td>
-                      <span
-                        class="badge"
-                        :class="cvssBadgeClass(vuln.cvss)"
-                        >{{ vuln.cvss }}</span
-                      >
-                    </td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-info-circle" /> 详情
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- CPU/内核比较图表 -->
     <div class="row mt-4">
       <div class="col-12">
@@ -329,60 +237,8 @@ const stats = computed(() => {
     { icon: 'fas fa-microchip',           value: total, label: '检测的机器数量' }
   ]
 })
-// CVE 数据
-const cveDataRaw = [
-  { cve: "CVE-2017-5753", name: "Spectre V1", protected: 6, total: 6, cvss: 5.6 },
-  { cve: "CVE-2017-5715", name: "Spectre V2", protected: 5, total: 6, cvss: 5.9 },
-  { cve: "CVE-2017-5754", name: "Meltdown", protected: 6, total: 6, cvss: 5.6 },
-  { cve: "CVE-2018-3639", name: "Spectre V4", protected: 5, total: 6, cvss: 5.6 },
-  { cve: "CVE-2018-3640", name: "Spectre V3A", protected: 5, total: 6, cvss: 4.3 },
-  { cve: "CVE-2018-3615", name: "L1TF SGX", protected: 6, total: 6, cvss: 5.6 },
-  { cve: "CVE-2018-3620", name: "L1TF OS", protected: 6, total: 6, cvss: 5.6 },
-  { cve: "CVE-2018-3646", name: "L1TF VMM", protected: 6, total: 6, cvss: 5.6 },
-  { cve: "CVE-2018-12126", name: "MSBDS", protected: 4, total: 6, cvss: 6.5 },
-  { cve: "CVE-2018-12130", name: "MFBDS", protected: 5, total: 6, cvss: 6.5 },
-  { cve: "CVE-2018-12127", name: "MLPDS", protected: 5, total: 6, cvss: 6.5 },
-  { cve: "CVE-2019-11091", name: "MDSUM", protected: 5, total: 6, cvss: 3.8 },
-  { cve: "CVE-2019-11135", name: "TAA", protected: 5, total: 6, cvss: 6.5 },
-  { cve: "CVE-2018-12207", name: "ITLBMH", protected: 6, total: 6, cvss: 6.5 },
-  { cve: "CVE-2020-0543", name: "SRBDS", protected: 6, total: 6, cvss: 6.5 },
-  { cve: "CVE-2023-20593", name: "Zenbleed", protected: 6, total: 6, cvss: 6.5 },
-  { cve: "CVE-2022-40982", name: "Downfall", protected: 6, total: 6, cvss: 6.5 },
-  { cve: "CVE-2022-4543", name: "Entrybleed", protected: 5, total: 6, cvss: 7.0 },
-  { cve: "CVE-2023-20569", name: "Inception", protected: 5, total: 6, cvss: 4.7 },
-  { cve: "CVE-2023-23583", name: "Reptar", protected: 6, total: 6, cvss: 8.8 }
-]
 
-// 追加计算字段
-const cveData = cveDataRaw.map((v) => ({
-  ...v,
-  protectionRate: Math.round((v.protected / v.total) * 100)
-}))
 
-// 搜索
-const search = ref('')
-const filteredCveData = computed(() =>
-  cveData.filter((v) => v.cve.includes(search.value) || v.name.includes(search.value))
-)
-
-// 计算样式工具
-function protectionBadgeClass(rate) {
-  if (rate === 100) return 'bg-success'
-  if (rate >= 80) return 'bg-warning text-dark'
-  return 'bg-danger'
-}
-function cvssBadgeClass(score) {
-  if (score >= 7.0) return 'bg-danger'
-  if (score >= 4.0) return 'bg-warning text-dark'
-  return 'bg-primary'
-}
-function riskBadgeClass(status) {
-  return {
-    danger: 'bg-danger',
-    warning: 'bg-warning text-dark',
-    success: 'bg-success'
-  }[status]
-}
 function riskCountBadgeClass(count) {
   return count >= 4 ? 'bg-danger' : 'bg-warning'
 }

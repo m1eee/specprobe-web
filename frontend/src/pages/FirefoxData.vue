@@ -13,7 +13,7 @@
 
     <div v-else>
       <div class="card mb-4">
-        <div class="card-header d-flex align-items-center">
+        <div class="card-header2 d-flex align-items-center">
           <i class="fas fa-bookmark me-2"></i>
           <span>书签 ({{ processedBookmarks.length }})</span>
         </div>
@@ -59,7 +59,7 @@
       </div>
 
       <div class="card mb-4">
-        <div class="card-header d-flex align-items-center">
+        <div class="card-header2 d-flex align-items-center">
           <i class="fas fa-cookie-bite me-2"></i>
           <span>Cookie ({{ processedCookies.length }})</span>
         </div>
@@ -117,7 +117,7 @@
       </div>
 
       <div class="card mb-4">
-        <div class="card-header d-flex align-items-center">
+        <div class="card-header2 d-flex align-items-center">
           <i class="fas fa-history me-2"></i>
           <span>历史记录 ({{ processedHistory.length }})</span>
         </div>
@@ -185,8 +185,8 @@ async function fetchData() {
   bookmark.value = []; cookie.value = []; history.value = [];
   try {
     const url = subdir.value
-      ? `/api/firefox/data/?subdir=${encodeURIComponent(subdir.value)}`
-      : `/api/firefox/data/`
+      ? `/api/attack/data/?subdir=${encodeURIComponent(subdir.value)}`
+      : `/api/attack/data/`
     const { data } = await axios.get(url)
     bookmark.value = data.bookmark || []
     cookie.value = data.cookie || []
@@ -325,5 +325,13 @@ function getSortIcon(type, key) {
 }
 .table-bordered {
     border: 1px solid #dee2e6;
+}
+
+.card-header2 {
+    background: linear-gradient(to right, #e65100, #ffa726);
+    color: white;
+    font-weight: 600;
+    border-bottom: none;
+    padding: 1rem 1.5rem;
 }
 </style>
