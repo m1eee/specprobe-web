@@ -17,38 +17,11 @@
         <span class="navbar-toggler-icon" />
       </button>
 
-      <!-- Links -->
-      <div class="collapse navbar-collapse" id="navMain">
-        <ul class="navbar-nav ms-auto">
-          <li
-            v-for="item in nav"
-            :key="item.path"
-            class="nav-item"
-          >
-            <RouterLink
-              :to="item.path"
-              class="nav-link d-flex align-items-center"
-              active-class="active fw-bold"
-              exact
-            >
-              <i :class="[item.icon, 'me-1']" /> {{ item.label }}
-            </RouterLink>
-          </li>
-        </ul>
-      </div>
+
     </div>
   </nav>
 </template>
-
 <script setup>
-// 顶栏导航配置
-const nav = [
-  { path: '/', label: '首页', icon: 'fas fa-home' },
-  { path: '/upload', label: '上传报告', icon: 'fas fa-upload' },
-  { path: '/reports', label: '报告列表', icon: 'fas fa-list' },
-  { path: '/charts', label: '分析图表', icon: 'fas fa-chart-bar' },
-  { path: '/settings', label: '设置', icon: 'fas fa-cog' }
-]
 </script>
 
 <style scoped>

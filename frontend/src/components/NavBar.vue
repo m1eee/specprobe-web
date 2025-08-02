@@ -43,7 +43,7 @@ const nav = [
   { path: '/upload', label: '上传报告', icon: 'fas fa-upload' },
   { path: '/reports', label: '报告列表', icon: 'fas fa-list' },
   { path: '/charts', label: '分析图表', icon: 'fas fa-chart-bar' },
-  { path: '/settings', label: '设置', icon: 'fas fa-cog' }
+  { path: '/settings', label: '设置', icon: 'fas fa-cog' },
 ]
 </script>
 

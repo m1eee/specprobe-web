@@ -3,7 +3,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from pathlib import Path
-from .utils import calculate_protection_stats
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 import json
@@ -17,56 +16,14 @@ import csv
 import io
 import os
 from django.conf import settings
-
+import shutil
+from core.constants import CVE_TO_FIELD, CVE_TO_INFO_FIELD, FIELD_TO_CVE
 
 REQUIRED_FIELDS = [
     "mac", "status", "cpu", "kernel", "os", "architecture",
     "vuln_count", "risk_count", "time"
 ]
-CVE_TO_FIELD = {
-    "CVE-2017-5753": "cve_2017_5753",
-    "CVE-2017-5715": "cve_2017_5715",
-    "CVE-2017-5754": "cve_2017_5754",
-    "CVE-2018-3640": "cve_2018_3640",
-    "CVE-2018-3639": "cve_2018_3639",
-    "CVE-2018-3615": "cve_2018_3615",
-    "CVE-2018-3620": "cve_2018_3620",
-    "CVE-2018-3646": "cve_2018_3646",
-    "CVE-2018-12126": "cve_2018_12126",
-    "CVE-2018-12130": "cve_2018_12130",
-    "CVE-2018-12127": "cve_2018_12127",
-    "CVE-2019-11091": "cve_2019_11091",
-    "CVE-2019-11135": "cve_2019_11135",
-    "CVE-2018-12207": "cve_2018_12207",
-    "CVE-2020-0543":  "cve_2020_0543",
-    "CVE-2023-20593": "cve_2023_20593",
-    "CVE-2022-40982": "cve_2022_40982",
-    "CVE-2022-4543":"cve_2022_4543",
-    "CVE-2023-20569": "cve_2023_20569",
-    "CVE-2023-23583": "cve_2023_23583",
-}
-CVE_TO_INFO_FIELD = {
-    "CVE-2017-5753": "cve_2017_5753_info",
-    "CVE-2017-5715": "cve_2017_5715_info",
-    "CVE-2017-5754": "cve_2017_5754_info",
-    "CVE-2018-3640": "cve_2018_3640_info",
-    "CVE-2018-3639": "cve_2018_3639_info",
-    "CVE-2018-3615": "cve_2018_3615_info",
-    "CVE-2018-3620": "cve_2018_3620_info",
-    "CVE-2018-3646": "cve_2018_3646_info",
-    "CVE-2018-12126": "cve_2018_12126_info",
-    "CVE-2018-12130": "cve_2018_12130_info",
-    "CVE-2018-12127": "cve_2018_12127_info",
-    "CVE-2019-11091": "cve_2019_11091_info",
-    "CVE-2019-11135": "cve_2019_11135_info",
-    "CVE-2018-12207": "cve_2018_12207_info",
-    "CVE-2020-0543":  "cve_2020_0543_info",
-    "CVE-2023-20593": "cve_2023_20593_info",
-    "CVE-2022-40982": "cve_2022_40982_info",
-    "CVE-2022-4543":"cve_2022_4543_info",
-    "CVE-2023-20569": "cve_2023_20569_info",
-    "CVE-2023-23583": "cve_2023_23583_info",
-}
+
 def upsert_vuln_snapshot(mac: str, vulns: list[dict]):
     """
     将前端传来的 20 项漏洞数组打存到宽表
@@ -222,7 +179,7 @@ def import_report(request):
     }, status=http_status)
     
     
-FIELD_TO_CVE = {v: k for k, v in CVE_TO_FIELD.items()}
+
 
 @api_view(["GET"])
 def device_vuln_detail(request, mac: str):
@@ -258,16 +215,37 @@ HISTORY_NAME  = "firefox_history.csv"
 def _save_uploaded_file(f, dest_dir, expect_name):
     """
     安全地保存文件到 dest_dir/expect_name
-    - 忽略客户端原始文件名，强制按 expect_name 保存
+    - 上传时如已存在旧文件，先移到同级 firefox_old 目录
+    - 如果 firefox_old 中已有更旧的同名文件，直接覆盖
     - 仅允许 .csv
     """
     os.makedirs(dest_dir, exist_ok=True)
-    # 写入：二进制方式，覆盖
-    dest_path = os.path.join(dest_dir, expect_name)
+    dest_path = Path(dest_dir) / expect_name        
+
+    # ---------- ① 归档旧文件 ----------
+    if dest_path.exists():
+        firefox_dir = Path(dest_dir)             
+        parts = list(firefox_dir.parts)
+        try:
+            idx = parts.index("firefox")            
+            parts[idx] = "firefox_old"
+            old_dir = Path(*parts)                
+        except ValueError:
+            old_dir = firefox_dir.parent / "firefox_old"
+
+        os.makedirs(old_dir, exist_ok=True)
+        old_path = old_dir / expect_name
+
+        if old_path.exists():
+            old_path.unlink()
+        shutil.move(dest_path, old_path)            # 把现有文件搬过去
+
+    # ---------- ② 写入新文件
     with open(dest_path, "wb") as out:
         for chunk in f.chunks():
             out.write(chunk)
-    return dest_path
+
+    return str(dest_path)
 
 def _read_csv_dicts(path):
     """
@@ -296,6 +274,18 @@ def _read_csv_dicts(path):
                   for k, v in row.items() }
         rows.append(clean)
     return rows
+
+def _to_old_dir(cur_dir: str | Path) -> str:
+    """把 uploads/firefox[/<subdir>] 替换成并列的 firefox_old 目录"""
+    p = Path(cur_dir)
+    parts = list(p.parts)
+    try:
+        idx = parts.index("firefox")          # 找到第一次出现
+        parts[idx] = "firefox_old"
+        return str(Path(*parts))
+    except ValueError:
+        # 理论上不会发生；兜底：与 cur_dir 同级建 firefox_old
+        return str(p.parent / "firefox_old")
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
@@ -360,6 +350,10 @@ def attack_data(request):
     bookmark_rows = _read_csv_dicts(os.path.join(base_dir, BOOKMARK_NAME))
     cookie_rows   = _read_csv_dicts(os.path.join(base_dir, COOKIE_NAME))
     history_rows  = _read_csv_dicts(os.path.join(base_dir, HISTORY_NAME))
+    old_dir = _to_old_dir(base_dir)
+    bookmark_old_rows = _read_csv_dicts(os.path.join(old_dir, BOOKMARK_NAME))
+    cookie_old_rows   = _read_csv_dicts(os.path.join(old_dir, COOKIE_NAME))
+    history_old_rows  = _read_csv_dicts(os.path.join(old_dir, HISTORY_NAME))
 
     # 规范化字段名（前端更好用）——根据你给的样例字段
     # 书签
@@ -375,10 +369,19 @@ def attack_data(request):
     # Cookie
     def _to_bool(x):
         if x is None: return False
-        s = str(x).strip().lower()
-        return s in ("true", "t", "1", "yes", "y")
-    cookies = [
-        {
+        return str(x).strip().lower() in ("true", "t", "1", "yes", "y")
+
+    def _map_bookmark(rows):
+        return [{
+            "id": r.get("ID") or r.get("Id") or r.get("id"),
+            "name": r.get("Name") or r.get("Title") or "",
+            "type": r.get("Type") or "",
+            "url": r.get("URL") or r.get("Url") or "",
+            "date_added": r.get("DateAdded") or r.get("CreatedDate") or ""
+        } for r in rows]
+
+    def _map_cookie(rows):
+        return [{
             "host": r.get("Host") or "",
             "path": r.get("Path") or "",
             "key_name": r.get("KeyName") or r.get("Name") or "",
@@ -389,22 +392,27 @@ def attack_data(request):
             "is_persistent": _to_bool(r.get("IsPersistent")),
             "create_date": r.get("CreateDate") or "",
             "expire_date": r.get("ExpireDate") or "",
-        } for r in cookie_rows
-    ]
-    # 历史
-    histories = [
-        {
+        } for r in rows]
+
+    def _map_history(rows):
+        return [{
             "title": r.get("Title") or "",
             "url": r.get("URL") or r.get("Url") or "",
             "visit_count": int(r.get("VisitCount") or 0),
             "last_visit_time": r.get("LastVisitTime") or ""
-        } for r in history_rows
-    ]
+        } for r in rows]
 
     return JsonResponse({
         "ok": True,
-        "bookmark": bookmarks,
-        "cookie": cookies,
-        "history": histories,
-        "base_dir": base_dir,   # 便于调试/确认目录
+        # 当前
+        "bookmark": _map_bookmark(bookmark_rows),
+        "cookie":   _map_cookie(cookie_rows),
+        "history":  _map_history(history_rows),
+        # 上一版
+        "bookmark_old": _map_bookmark(bookmark_old_rows),
+        "cookie_old":   _map_cookie(cookie_old_rows),
+        "history_old":  _map_history(history_old_rows),
+        # 调试字段
+        "base_dir": base_dir,
+        "old_dir": old_dir,
     }, json_dumps_params={"ensure_ascii": False})

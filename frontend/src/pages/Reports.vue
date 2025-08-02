@@ -313,7 +313,7 @@
           <div class="col-md-3">
             <div class="card text-center border-primary">
               <div class="card-body">
-                <h5 class="card-title text-primary">{{ stats.total_cves }}</h5>
+                <h5 class="card-title text-primary">20</h5>
                 <p class="card-text small text-muted">检测的CVE数量</p>
               </div>
             </div>

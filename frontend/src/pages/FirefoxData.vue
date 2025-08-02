@@ -33,10 +33,10 @@
               </thead>
               <tbody>
                 <tr v-for="b in paginatedBookmarks" :key="b.id">
-                  <td class="text-truncate" :title="b.name">{{ b.name }}</td>
-                  <td>{{ b.type }}</td>
-                  <td><a :href="b.url" target="_blank" rel="noreferrer" class="text-break">{{ b.url }}</a></td>
-                  <td>{{ b.date_added }}</td>
+                  <td :class="{'row-old': b.isNew}" :title="b.name">{{ b.name }}</td>
+                  <td :class="{'row-old': b.isNew}">{{ b.type }}</td>
+                  <td :class="{'row-old': b.isNew}"><a :href="b.url" target="_blank" rel="noreferrer" class="text-break">{{ b.url }}</a></td>
+                  <td :class="{'row-old': b.isNew}">{{ b.date_added }}</td>
                 </tr>
                 <tr v-if="paginatedBookmarks.length === 0">
                   <td colspan="5" class="text-center text-muted">没有找到匹配的数据</td>
@@ -85,16 +85,16 @@
                     </thead>
                     <tbody>
                         <tr v-for="(c, i) in paginatedCookies" :key="i">
-                            <td class="text-truncate" :title="c.host">{{ c.host }}</td>
-                            <td class="text-truncate" :title="c.path">{{ c.path }}</td>
-                            <td class="text-truncate" :title="c.key_name">{{ c.key_name }}</td>
-                            <td class="text-truncate" :title="c.value">{{ c.value }}</td>
-                            <td>{{ c.is_secure ? '是' : '否' }}</td>
-                            <td>{{ c.is_http_only ? '是' : '否' }}</td>
-                            <td>{{ c.has_expire ? '是' : '否' }}</td>
-                            <td>{{ c.is_persistent ? '是' : '否' }}</td>
-                            <td>{{ c.create_date }}</td>
-                            <td>{{ c.expire_date }}</td>
+                            <td :class="{'row-old': c.isNew}" :title="c.host">{{ c.host }}</td>
+                            <td :class="{'row-old': c.isNew}" :title="c.path">{{ c.path }}</td>
+                            <td :class="{'row-old': c.isNew}" :title="c.key_name">{{ c.key_name }}</td>
+                            <td :class="{'row-old': c.isNew}" :title="c.value">{{ c.value }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.is_secure ? '是' : '否' }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.is_http_only ? '是' : '否' }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.has_expire ? '是' : '否' }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.is_persistent ? '是' : '否' }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.create_date }}</td>
+                            <td :class="{'row-old': c.isNew}">{{ c.expire_date }}</td>
                         </tr>
                         <tr v-if="paginatedCookies.length === 0">
                             <td colspan="10" class="text-center text-muted">没有找到匹配的数据</td>
@@ -137,10 +137,10 @@
                     </thead>
                     <tbody>
                     <tr v-for="(r, i) in paginatedHistory" :key="i">
-                        <td class="text-truncate" :title="r.title">{{ r.title }}</td>
-                        <td><a :href="r.url" target="_blank" rel="noreferrer" class="text-break">{{ r.url }}</a></td>
-                        <td>{{ r.visit_count }}</td>
-                        <td>{{ r.last_visit_time }}</td>
+                        <td :class="{'row-old': r.isNew}" :title="r.title">{{ r.title }}</td>
+                        <td :class="{'row-old': r.isNew}"><a :href="r.url" target="_blank" rel="noreferrer" class="text-break">{{ r.url }}</a></td>
+                        <td :class="{'row-old': r.isNew}">{{ r.visit_count }}</td>
+                        <td :class="{'row-old': r.isNew}">{{ r.last_visit_time }}</td>
                     </tr>
                     <tr v-if="paginatedHistory.length === 0">
                         <td colspan="4" class="text-center text-muted">没有找到匹配的数据</td>
@@ -167,8 +167,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted,onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
+
+// --- 定时器ID ---
+let pollingIntervalId = null;
 
 // --- Base State ---
 const bookmark = ref([])
@@ -180,46 +183,72 @@ const subdir = ref('')
 
 // --- Data Fetching ---
 async function fetchData() {
-  loading.value = true
   errorMsg.value = ''
-  bookmark.value = []; cookie.value = []; history.value = [];
   try {
     const url = subdir.value
       ? `/api/attack/data/?subdir=${encodeURIComponent(subdir.value)}`
       : `/api/attack/data/`
     const { data } = await axios.get(url)
-    bookmark.value = data.bookmark || []
-    cookie.value = data.cookie || []
-    history.value = data.history || []
+    bookmark.value = [
+      ...(data.bookmark      ?? []).map(r => ({ ...r, isNew: true })),
+      ...(data.bookmark_old  ?? []).map(r => ({ ...r, isNew: false }))
+    ]
+    cookie.value = [
+      ...(data.cookie        ?? []).map(r => ({ ...r, isNew: true })),
+      ...(data.cookie_old    ?? []).map(r => ({ ...r, isNew: false }))
+    ]
+    history.value = [
+      ...(data.history       ?? []).map(r => ({ ...r, isNew: true })),
+      ...(data.history_old   ?? []).map(r => ({ ...r, isNew: false }))
+    ]
   } catch (err) {
     console.error(err)
     errorMsg.value = err.response?.data?.error || err.message || '获取数据时发生未知错误'
+    if (pollingIntervalId) {
+      clearInterval(pollingIntervalId);
+    }
   } finally {
-    loading.value = false
   }
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  loading.value = true;
+  fetchData().finally(() => {
+    loading.value = false;
+  });
+
+  // b) 启动轮询：每 3000 毫秒（3秒）调用一次 fetchData
+  const pollFrequency = 5000;
+  pollingIntervalId = setInterval(fetchData, pollFrequency);
+});
+
+onUnmounted(() => {
+  // c) 组件被销毁时，清除定时器，停止轮询
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+  }
+});
+
 
 // --- Table Interaction State ---
 const pageSize = 10;
 
 // Bookmarks state
 const searchBookmark = ref('')
-const sortKeyBookmark = ref('date_added')
-const sortDirBookmark = ref('desc')
+const sortKeyBookmark = ref('')
+const sortDirBookmark = ref('asc')
 const currentPageBookmark = ref(1)
 
 // Cookies state
 const searchCookie = ref('')
-const sortKeyCookie = ref('create_date')
-const sortDirCookie = ref('desc')
+const sortKeyCookie = ref('')
+const sortDirCookie = ref('asc')
 const currentPageCookie = ref(1)
 
 // History state
 const searchHistory = ref('')
-const sortKeyHistory = ref('last_visit_time')
-const sortDirHistory = ref('desc')
+const sortKeyHistory = ref('')
+const sortDirHistory = ref('asc')
 const currentPageHistory = ref(1)
 
 // --- Computed Properties for Data Processing ---
@@ -237,21 +266,23 @@ const createTableProcessor = (sourceData, searchRef, sortKeyRef, sortDirRef, sea
       );
     }
 
+  if (sortKeyRef.value) {
     data.sort((a, b) => {
-      const key = sortKeyRef.value;
-      let valA = a[key];
-      let valB = b[key];
-      
+      const key = sortKeyRef.value
+      let valA = a[key]
+      let valB = b[key]
+
       if (numericSortFields.includes(key)) {
-          valA = Number(valA) || 0;
-          valB = Number(valB) || 0;
+        valA = Number(valA) || 0
+        valB = Number(valB) || 0
       }
 
-      const modifier = sortDirRef.value === 'asc' ? 1 : -1;
-      if (valA < valB) return -1 * modifier;
-      if (valA > valB) return 1 * modifier;
-      return 0;
+      const modifier = sortDirRef.value === 'asc' ? 1 : -1
+      if (valA < valB) return -1 * modifier
+      if (valA > valB) return  1 * modifier
+      return 0
     });
+  }
 
     return data;
   });
@@ -333,5 +364,8 @@ function getSortIcon(type, key) {
     font-weight: 600;
     border-bottom: none;
     padding: 1rem 1.5rem;
+}
+.row-old {
+  background: #e9cfa8 !important;
 }
 </style>
