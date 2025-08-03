@@ -437,6 +437,7 @@ const sortedReports = computed(() => {
 async function fetchData() {
   try {
     const res = await axios.get('/api/reports/')
+    console.log('reports', res.data)
     reports.value = res.data.machines
     machines.value = res.data.machines
     vulnerabilities.value = res.data.vulnerabilities

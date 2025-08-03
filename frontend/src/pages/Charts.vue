@@ -118,127 +118,149 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Chart, registerables } from 'chart.js'
-Chart.register(...registerables)
+import { ref, computed, onMounted } from 'vue';
+import { Chart, registerables } from 'chart.js';
+import axios from 'axios';
+Chart.register(...registerables);
 
-// Refs
-const typeChartRef = ref(null)
-const trendChartRef = ref(null)
-const cpuVendorChartRef = ref(null)
+// --- Refs ---
+const typeChartRef = ref(null);
+const trendChartRef = ref(null);
+const search = ref('');
+
+const cveStaticDetails = [
+  { cve: "CVE-2017-5753", name: "Spectre V1", cvss: 5.6 ,detail: 'Spectre变体1 (边界检查绕过)'},
+  { cve: "CVE-2017-5715", name: "Spectre V2", cvss: 5.9 ,detail: 'Spectre变体2 (分支目标注入)'},
+  { cve: "CVE-2017-5754", name: "Meltdown", cvss: 5.6 ,detail: 'Meltdown (恶意数据缓存加载)'},
+  { cve: "CVE-2018-3639", name: "Spectre V4", cvss: 5.6 ,detail: '变体3A (恶意系统寄存器读取)'},
+  { cve: "CVE-2018-3640", name: "Spectre V3A", cvss: 4.3 ,detail: '变体4 (推测存储绕过)'},
+  { cve: "CVE-2018-3615", name: "L1TF SGX", cvss: 5.6 ,detail: 'L1TF SGX (L1终端故障 - SGX)'},
+  { cve: "CVE-2018-3620", name: "L1TF OS", cvss: 5.6 ,detail: 'L1TF OS (L1终端故障 - 操作系统)'},
+  { cve: "CVE-2018-3646", name: "L1TF VMM", cvss: 5.6 ,detail: 'L1TF VMM (L1终端故障 - 虚拟机监视器)'},
+  { cve: "CVE-2018-12126", name: "MSBDS", cvss: 6.5 ,detail: 'MSBDS (微架构存储缓冲区数据采样)'},
+  { cve: "CVE-2018-12130", name: "MFBDS", cvss: 6.5 ,detail: 'MFBDS (微架构填充缓冲区数据采样)'},
+  { cve: "CVE-2018-12127", name: "MLPDS", cvss: 6.5 ,detail: 'MLPDS (微架构加载端口数据采样)'},
+  { cve: "CVE-2019-11091", name: "MDSUM", cvss: 3.8 ,detail: 'MDSUM (微架构数据采样无缓存内存)'},
+  { cve: "CVE-2019-11135", name: "TAA", cvss: 6.5 ,detail: 'TAA (TSX异步中止)'},
+  { cve: "CVE-2018-12207", name: "ITLBMH", cvss: 6.5 ,detail: 'ITLBMH (指令TLB多级页表)'},
+  { cve: "CVE-2020-0543", name: "SRBDS", cvss: 6.5 ,detail: 'SRBDS (特殊寄存器缓冲区数据采样)'},
+  { cve: "CVE-2023-20593", name: "Zenbleed", cvss: 6.5 ,detail: 'Zenbleed (AMD Zen2架构漏洞)'},
+  { cve: "CVE-2022-40982", name: "Downfall", cvss: 6.5 ,detail: 'Downfall (收集数据采样)'},
+  { cve: "CVE-2022-4543", name: "Entrybleed", cvss: 7.0 ,detail: 'EntryBleed (KASLR绕过)'},
+  { cve: "CVE-2023-20569", name: "Inception", cvss: 4.7 ,detail: 'Inception (AMD推测执行漏洞)'},
+  { cve: "CVE-2023-23583", name: "Reptar", cvss: 8.8 ,detail: 'Reptar (Intel序列化指令漏洞)'}
+];
 
 
-// ==== CVE 数据 ====
+const cveData = ref([]);
 
-const search = ref('')
 const filteredCveData = computed(() =>
-  cveData.filter((v) => v.cve.includes(search.value) || v.name.includes(search.value))
-)
+  cveData.value.filter((v) => v.cve.toLowerCase().includes(search.value.toLowerCase()) || v.name.toLowerCase().includes(search.value.toLowerCase()))
+);
 
-const cveDataRaw = [
-  { cve: "CVE-2017-5753", name: "Spectre V1", protected: 6, total: 6, cvss: 5.6 ,detail: 'Spectre变体1 (边界检查绕过)'},
-  { cve: "CVE-2017-5715", name: "Spectre V2", protected: 5, total: 6, cvss: 5.9 ,detail: 'Spectre变体2 (分支目标注入)'},
-  { cve: "CVE-2017-5754", name: "Meltdown", protected: 6, total: 6, cvss: 5.6 ,detail: 'Meltdown (恶意数据缓存加载)'},
-  { cve: "CVE-2018-3639", name: "Spectre V4", protected: 5, total: 6, cvss: 5.6 ,detail: '变体3A (恶意系统寄存器读取)'},
-  { cve: "CVE-2018-3640", name: "Spectre V3A", protected: 5, total: 6, cvss: 4.3 ,detail: '变体4 (推测存储绕过)'},
-  { cve: "CVE-2018-3615", name: "L1TF SGX", protected: 6, total: 6, cvss: 5.6 ,detail: 'L1TF SGX (L1终端故障 - SGX)'},
-  { cve: "CVE-2018-3620", name: "L1TF OS", protected: 6, total: 6, cvss: 5.6 ,detail: 'L1TF OS (L1终端故障 - 操作系统)'},
-  { cve: "CVE-2018-3646", name: "L1TF VMM", protected: 6, total: 6, cvss: 5.6 ,detail: 'L1TF VMM (L1终端故障 - 虚拟机监视器)'},
-  { cve: "CVE-2018-12126", name: "MSBDS", protected: 4, total: 6, cvss: 6.5 ,detail: 'MSBDS (微架构存储缓冲区数据采样)'},
-  { cve: "CVE-2018-12130", name: "MFBDS", protected: 5, total: 6, cvss: 6.5 ,detail: 'MFBDS (微架构填充缓冲区数据采样)'},
-  { cve: "CVE-2018-12127", name: "MLPDS", protected: 5, total: 6, cvss: 6.5 ,detail: 'MLPDS (微架构加载端口数据采样)'},
-  { cve: "CVE-2019-11091", name: "MDSUM", protected: 5, total: 6, cvss: 3.8 ,detail: 'MDSUM (微架构数据采样无缓存内存)'},
-  { cve: "CVE-2019-11135", name: "TAA", protected: 5, total: 6, cvss: 6.5 ,detail: 'TAA (TSX异步中止)'},
-  { cve: "CVE-2018-12207", name: "ITLBMH", protected: 6, total: 6, cvss: 6.5 ,detail: 'ITLBMH (指令TLB多级页表)'},
-  { cve: "CVE-2020-0543", name: "SRBDS", protected: 6, total: 6, cvss: 6.5 ,detail: 'SRBDS (特殊寄存器缓冲区数据采样)'},
-  { cve: "CVE-2023-20593", name: "Zenbleed", protected: 6, total: 6, cvss: 6.5 ,detail: 'Zenbleed (AMD Zen2架构漏洞)'},
-  { cve: "CVE-2022-40982", name: "Downfall", protected: 6, total: 6, cvss: 6.5 ,detail: 'Downfall (收集数据采样)'},
-  { cve: "CVE-2022-4543", name: "Entrybleed", protected: 5, total: 6, cvss: 7.0 ,detail: 'EntryBleed (KASLR绕过)'},
-  { cve: "CVE-2023-20569", name: "Inception", protected: 5, total: 6, cvss: 4.7 ,detail: 'Inception (AMD推测执行漏洞)'},
-  { cve: "CVE-2023-23583", name: "Reptar", protected: 6, total: 6, cvss: 8.8 ,detail: 'Reptar (Intel序列化指令漏洞)'}
-]
-// 计算样式工具
+
 function protectionBadgeClass(rate) {
-  if (rate === 100) return 'bg-success'
-  if (rate >= 80) return 'bg-warning text-dark'
-  return 'bg-danger'
+  if (rate === 100) return 'bg-success';
+  if (rate >= 80) return 'bg-warning text-dark';
+  return 'bg-danger';
 }
 function cvssBadgeClass(score) {
-  if (score >= 7.0) return 'bg-danger'
-  if (score >= 4.0) return 'bg-warning text-dark'
-  return 'bg-primary'
+  if (score >= 7.0) return 'bg-danger';
+  if (score >= 4.0) return 'bg-warning text-dark';
+  return 'bg-primary';
 }
-function riskBadgeClass(status) {
-  return {
-    danger: 'bg-danger',
-    warning: 'bg-warning text-dark',
-    success: 'bg-success'
-  }[status]
-}
-function riskCountBadgeClass(count) {
-  return count >= 4 ? 'bg-danger' : 'bg-warning'
-}
-function riskLevelBadgeClass(count) {
-  return count >= 4 ? 'bg-danger' : 'bg-warning text-dark'
-}
-// 追加计算字段
-const cveData = cveDataRaw.map((v) => ({
-  ...v,
-  protectionRate: Math.round((v.protected / v.total) * 100)
-}))
 
-onMounted(() => {
-  // 漏洞类型分布
+
+async function fetchAndMergeCveData() {
+  try {
+    const response = await axios.get('/api/reports/'); 
+    const fetchedVulnerabilities = response.data.vulnerabilities;
+    console.log("Fetched vulnerabilities:", fetchedVulnerabilities);
+    if (!fetchedVulnerabilities || !Array.isArray(fetchedVulnerabilities)) {
+      console.error("Vulnerability data from API is not in the expected format.");
+      cveData.value = [];
+      return;
+    }
+    const staticInfoMap = new Map(cveStaticDetails.map(item => [item.cve, { name: item.name, cvss: item.cvss, detail: item.detail }]));
+    const mergedData = fetchedVulnerabilities.map(vuln => {
+      const staticInfo = staticInfoMap.get(vuln.cve) || {};
+      const totalMachines = vuln.protected_count + vuln.affected_count + vuln.unknown_count;
+      const protectionRate = totalMachines > 0 ? Math.round((vuln.protected_count / totalMachines) * 100) : 100;
+
+      return {
+        cve: vuln.cve,
+        name: staticInfo.name || 'N/A',
+        cvss: staticInfo.cvss || 0,
+        detail: staticInfo.detail || 'No details available.',
+        protected: vuln.protected_count,
+        total: totalMachines,          
+        protectionRate: protectionRate, 
+      };
+    });
+
+    cveData.value = mergedData;
+
+  } catch (error) {
+    console.error("Failed to fetch CVE data:", error);
+    cveData.value = []; 
+  }
+}
+
+/**
+ * @description Fetches report data and creates the historical trend chart.
+ */
+async function createTrendChart() {
+  try {
+    const response = await axios.get('/api/reports/');
+    const machines = response.data.machines;
+    if (!machines || !Array.isArray(machines)) {
+      console.error("Machine data from API is not in the expected format:", machines);
+      return;
+    }
+    const dailyCounts = {};
+    for (const report of machines) {
+      const date = report.report_time.split(' ')[0];
+      dailyCounts[date] = (dailyCounts[date] || 0) + 1;
+    }
+    const sortedDates = Object.keys(dailyCounts).sort((a, b) => new Date(a) - new Date(b));
+    const labels = sortedDates.map(date => {
+        const d = new Date(date);
+        return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+    });
+    const data = sortedDates.map(date => dailyCounts[date]);
+
+    new Chart(trendChartRef.value.getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets: [{
+        label: '每日检测机器数', data, borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.1)', fill: true, tension: 0.4,
+      }]},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: '机器检测报告提交趋势' }}},
+    });
+  } catch (error) {
+    console.error("Failed to fetch or process trend data:", error);
+  }
+}
+
+onMounted(async () => {
+
   new Chart(typeChartRef.value.getContext('2d'), {
     type: 'bar',
     data: {
       labels: ['推测执行漏洞', '侧信道攻击', '缓存攻击', '其他硬件漏洞'],
       datasets: [
-        {
-          label: '漏洞数量',
-          data: [8, 6, 4, 2],
-          backgroundColor: ['#283593', '#5c6bc0', '#ff4081', '#ffc107']
-        }
-      ]
+        { label: '漏洞数量', data: [10, 8, 1, 1], backgroundColor: ['#283593', '#5c6bc0', '#ff4081', '#ffc107'] },
+      ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        title: {
-          display: true,
-          text: '基于20个CVE漏洞的类型分析'
-        }
-      }
-    }
-  })
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '基于20个CVE漏洞的类型分析' }},
+    },
+  });
 
-  // 历史漏洞趋势
-  new Chart(trendChartRef.value.getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: ['6/10', '6/11', '6/12', '6/13', '6/14', '6/15'],
-      datasets: [
-        {
-          label: '每日检测机器数',
-          data: [1, 2, 3, 4, 5, 6],
-          borderColor: '#283593',
-          backgroundColor: 'rgba(40, 53, 147, 0.1)',
-          fill: true,
-          tension: 0.4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: { display: true, text: '机器检测报告提交趋势' }
-      }
-    }
-  })
-})
+  await Promise.all([
+    fetchAndMergeCveData(),
+    createTrendChart()
+  ]);
+});
 </script>
 
 
