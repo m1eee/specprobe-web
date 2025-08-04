@@ -59,7 +59,7 @@
                 <td>
                   <i class="fas fa-file-alt me-1 text-muted" />{{ report.mac }}
                 </td>
-                <td>
+                <td style="width: 15%;">
                   <i class="fas fa-microchip me-1 text-primary" />{{ report.cpu }}
                 </td>
                 <td>
@@ -75,7 +75,7 @@
                   >
                   <span v-else class="badge bg-success">0</span>
                 </td>
-                <td><small class="text-muted">{{ report.report_time }}</small></td>
+                <td style="width: 10%;"><small class="text-muted">{{ report.report_time }}</small></td>
                 <td>
                   <button @click="openDetail(report.mac)" class="btn btn-sm btn-outline-primary">
                     <i class="fas fa-eye" /> 查看详情

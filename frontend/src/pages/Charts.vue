@@ -26,6 +26,32 @@
           </div>
         </div>
       </div>
+    <!-- 图表展示区域 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card system-card">
+          <div class="card-header d-flex align-items-center">
+            <i class="fas fa-chart-pie me-2"></i>
+            <span>CPU厂商分布</span>
+          </div>
+          <div class="card-body p-0 chart-container">
+            <canvas ref="cpuVendorCanvas" />
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex align-items-center">
+            <i class="fas fa-shield-alt me-2" />
+            <span>系统安全状态</span>
+          </div>
+          <div class="card-body p-0 chart-container">
+            <canvas ref="securityStatusCanvas" />
+          </div>
+        </div>
+      </div>
+    </div>
       <!-- 漏洞列表 -->
       <div class="row">
         <div class="col-12">
@@ -38,23 +64,27 @@
               <div class="d-flex justify-content-between mb-3">
                 <div>
                   <div class="vulnerability-progress w-100 mb-2">
-                    <div
-                      class="progress-bar progress-bar-safe"
-                      style="width: 85%"
-                    />
-                    <div
-                      class="progress-bar progress-bar-vulnerable"
-                      style="width: 15%"
-                    />
+                  <!-- 已防护 -->
+                  <div
+                    class="progress-bar progress-bar-safe"
+                    :style="{ width: avgProtectionRate + '%' }"
+                  />
+                  <!-- 存在风险 -->
+                  <div
+                    class="progress-bar progress-bar-vulnerable"
+                    :style="{ width: riskRate + '%' }"
+                  />
+                </div>
+                <div class="d-flex">
+                  <div class="me-3">
+                    <span class="badge bg-success me-1">■</span>
+                    平均防护率: {{ avgProtectionRate }}%
                   </div>
-                  <div class="d-flex">
-                    <div class="me-3">
-                      <span class="badge bg-success me-1">■</span> 平均防护率: 85%
-                    </div>
-                    <div>
-                      <span class="badge bg-danger me-1">■</span> 存在风险: 15%
-                    </div>
+                  <div>
+                    <span class="badge bg-danger me-1">■</span>
+                    存在风险: {{ riskRate }}%
                   </div>
+                </div>
                 </div>
                 <div>
                   <input
@@ -241,7 +271,101 @@ async function createTrendChart() {
   }
 }
 
-onMounted(async () => {
+const avgProtectionRate = computed(() => {
+  if (!cveData.value.length) return 0;            // 无数据兜底
+  const total = cveData.value.reduce(
+    (sum, item) => sum + item.protectionRate,
+    0
+  );
+  return Math.round(total / cveData.value.length); // 0-100 的整数
+});
+const riskRate = computed(() => 100 - avgProtectionRate.value);
+
+
+// Charts
+const machines = ref([])
+const cpuVendorCanvas = ref(null)
+const securityStatusCanvas = ref(null)
+const comparisonCanvas = ref(null)
+
+const comparisonTable = ref([])
+const fetchData = async () => {
+  try {
+    const res = await axios.get('/api/reports/')
+    comparisonTable.value = (res.data.machines ?? []).map(m => {
+      const row = { ...m }
+      row.riskLevel  = m.risk_count >= 5 ? '高' : m.risk_count ? '中' : '低'
+      return row
+    })
+    machines.value = res.data.machines
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// 计算 CPU 厂商分布
+const vendorCounts = computed(() => {
+  const counts = { Intel: 0, AMD: 0, Other: 0 }
+  machines.value.forEach(row => {
+    console.log('Processing row:', row.cpu)
+    const cpu = (row.cpu || '').toLowerCase()
+    if (cpu.includes('intel')||cpu.includes('Intel')) counts.Intel++
+    else if (cpu.includes('amd')||cpu.includes('AMD')) counts.AMD++
+    else counts.Other++
+  })
+  console.log('Vendor counts:', counts)
+  return counts        // {Intel: n, AMD: m, Other: k}
+})
+
+onMounted(async() => {
+  await fetchData()
+  // CPU Vendor chart
+  new Chart(cpuVendorCanvas.value.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Intel', 'AMD' ,'其他'],
+      datasets: [
+        {
+          data: [vendorCounts.value.Intel, vendorCounts.value.AMD, vendorCounts.value.Other],
+          backgroundColor: ['#0d6efd', '#dc3545', '#6c757d'],
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      },
+      cutout: '60%'
+    }
+  })
+
+  // Security Status chart
+  new Chart(securityStatusCanvas.value.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['存在风险', '相对安全'],
+      datasets: [
+        {
+          data: [4, 2],
+          backgroundColor: ['#dc3545', '#198754'],
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      cutout: '60%'
+    }
+  })
 
   new Chart(typeChartRef.value.getContext('2d'), {
     type: 'bar',
@@ -261,6 +385,7 @@ onMounted(async () => {
     createTrendChart()
   ]);
 });
+
 </script>
 
 
