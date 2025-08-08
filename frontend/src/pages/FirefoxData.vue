@@ -332,7 +332,7 @@ function getSortIcon(type, key) {
 
 </script>
 
-<style>
+<style scoped>
 /* It's best to set global styles in a main CSS file (e.g., main.css or App.vue) 
   to ensure a consistent background and font across the entire application.
 */
