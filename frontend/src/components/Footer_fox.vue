@@ -1,6 +1,6 @@
 
 <template>
-  <footer class="footer footer--orange text-white pt-5 pb-4 mt-5">
+  <footer class="footer footer--orange">
     <div class="container">
       <div class="row">
         <!-- 品牌简介 -->
@@ -36,19 +36,16 @@
 
 
 <style scoped>
-.footer--orange {
-  background-color: #ef6c00;   
-  background-image: none;       
+.footer {
+  margin-top: 0 !important;   /* 清掉那 3 rem 左右的默认外边距 */
 }
-
 .footer--orange {
-  background: linear-gradient(135deg, #e65100 0%, #ef6c00 45%, #ffa726 100%);
+  background: linear-gradient(135deg, #0f0601 0%, #000000 45%, #000000 100%);
 }
-
-.footer--orange a { color: rgba(255,255,255,.85); }
+.footer--orange a { color: rgba(0, 0, 0, 0.85); }
 .footer--orange a:hover { opacity: 1; transition: opacity .2s ease; }
 .footer--orange :deep(hr) {
-  border-top-color: rgba(255,255,255,.25);
+  border-top-color: rgba(0, 0, 0, 0.25);
   opacity: .5;
 }
 </style>

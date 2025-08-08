@@ -1,4 +1,149 @@
 <template>
+  <!-- ——————————— 网站介绍弹窗 ——————————— -->
+  <div
+    class="modal fade"
+    id="introModal"
+    tabindex="-1"
+    ref="introModal"
+    aria-labelledby="introModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content shadow-lg border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+          <h5 class="modal-title" id="introModalLabel">
+            <i class="fas fa-rocket me-2"></i>欢迎使用 CPU 漏洞检测与分析平台
+          </h5>
+          <button
+            type="button"
+            class="btn-close btn-close-white"
+            @click="closeIntro"
+            aria-label="Close"
+          ></button>
+        </div>
+
+        <div class="modal-body p-4">
+          <p class="lead text-center mb-4">
+            一个集本地扫描、报告上传、数据可视化与深度分析于一体的安全平台。
+          </p>
+
+          <h5 class="fw-bold mb-3 text-center">
+            <i class="fas fa-project-diagram me-2"></i>简明工作流
+          </h5>
+          <div class="row text-center mb-5">
+            <div class="col-md-4">
+              <div class="p-3">
+                <div
+                  class="icon-circle bg-light text-primary mx-auto mb-3"
+                >
+                  <i class="fas fa-download fa-2x"></i>
+                </div>
+                <h6 class="fw-bold">1. 下载并检测</h6>
+                <p class="small text-muted">
+                  下载本地扫描工具，对您的目标机器进行一键扫描，生成包含硬件信息的
+                  <code>JSON</code> 格式报告。
+                </p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3">
+                 <div
+                  class="icon-circle bg-light text-primary mx-auto mb-3"
+                >
+                  <i class="fas fa-upload fa-2x"></i>
+                </div>
+                <h6 class="fw-bold">2. 上传与分析</h6>
+                <p class="small text-muted">
+                  将生成的报告文件上传至本平台。系统将自动解析数据，分析每一个机器面临的
+                  <code>CVE</code> 风险状态。
+                </p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3">
+                 <div
+                  class="icon-circle bg-light text-primary mx-auto mb-3"
+                >
+                  <i class="fas fa-chart-pie fa-2x"></i>
+                </div>
+                <h6 class="fw-bold">3. 汇总与分析</h6>
+                <p class="small text-muted">
+                  汇总所有机器的检测结果，并通过丰富的可视化图表和报告洞察风险，根据平台的建议对存在风险的系统进行安全加固。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <h5 class="fw-bold mb-3 text-center">
+             <i class="fas fa-star me-2"></i>核心功能一览
+          </h5>
+          <div class="row">
+            <div class="col-lg-6">
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex align-items-start border-0">
+                  <i class="fas fa-tachometer-alt fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">全局统计仪表盘</h6>
+                    <small>直观展示已检测机器总数、风险主机与安全主机的分布情况。</small>
+                  </div>
+                </li>
+                <li class="list-group-item d-flex align-items-start border-0">
+                   <i class="fas fa-chart-bar fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">多维度可视化分析</h6>
+                    <small>提供漏洞类型、CPU厂商、历史趋势等多种图表，深入分析漏洞数据。</small>
+                  </div>
+                </li>
+                 <li class="list-group-item d-flex align-items-start border-0">
+                  <i class="fas fa-list-ul fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">CVE 防护详情</h6>
+                    <small>详细列出每个CVE的防护率、CVSS评分和受影响机器，并用颜色标记风险等级。</small>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="col-lg-6">
+               <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex align-items-start border-0">
+                  <i class="fas fa-desktop fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">历史与设备报告</h6>
+                    <small>管理所有上传的历史报告，并可查看任一设备的具体漏洞详情。</small>
+                  </div>
+                </li>
+                <li class="list-group-item d-flex align-items-start border-0">
+                  <i class="fas fa-filter fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">强大的筛选与排序</h6>
+                    <small>在报告页面，可根据MAC地址、CPU、内核版本等任意关键字进行快速搜索和排序。</small>
+                  </div>
+                </li>
+                <li class="list-group-item d-flex align-items-start border-0">
+                   <i class="fas fa-lightbulb fa-fw text-primary me-3 mt-1"></i>
+                  <div>
+                    <h6 class="fw-bold mb-0">提供操作建议</h6>
+                    <small>根据分析结果，平台会自动生成可行的操作建议，辅助您进行安全决策。</small>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+           <div class="alert alert-info mt-4 mb-0" role="alert">
+             <i class="fas fa-shield-alt me-2"></i>
+             <strong class="me-2">数据安全承诺:</strong>本平台仅用于企业内部安全评估，所有检测数据均存储于专用服务器，确保您的数据隐私与合规。
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary px-4" @click="closeIntro">
+            <i class="fas fa-arrow-right me-2"></i>立即开始
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- 仪表盘头部 -->
   <section class="dashboard-header">
     <div class="container text-center">
@@ -76,8 +221,34 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
+import { Modal } from 'bootstrap' 
 import axios  from 'axios'
 Chart.register(...registerables)
+
+// —— 介绍弹窗逻辑 ——
+const introModal = ref(null)      // 绑定模板的 ref
+let introInstance = null          // 保存 Modal 实例
+
+function closeIntro() {
+  introInstance?.hide()
+}
+
+onMounted(() => {
+  // 自动弹出；如需“仅首次弹出”，见下方可选写法
+  introInstance = new Modal(introModal.value, {
+    backdrop: 'static',           // 禁止点击遮罩关闭
+    keyboard: false               // 禁止 Esc 关闭
+  })
+  // 检查会话存储中是否已有标志
+  if (!sessionStorage.getItem('hasSeenIntro')) {
+    // 如果没有标志，说明是此会话的首次加载
+    // 1. 显示弹窗
+    introInstance.show()
+
+    // 2. 在会话存储中设置标志，以便刷新后不再弹出
+    sessionStorage.setItem('hasSeenIntro', 'true')
+  }
+})
 
 // Props or API data placeholders
 const toolLink = '/static/packages/CPUVulnerabilityScanner.AppImage'
@@ -99,13 +270,6 @@ const stats = computed(() => {
   ]
 })
 
-
-function riskCountBadgeClass(count) {
-  return count >= 4 ? 'bg-danger' : 'bg-warning'
-}
-function riskLevelBadgeClass(count) {
-  return count >= 4 ? 'bg-danger' : 'bg-warning text-dark'
-}
 
 // Charts
 const cpuVendorCanvas = ref(null)

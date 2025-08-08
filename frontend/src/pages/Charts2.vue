@@ -4,14 +4,14 @@
       <i class="fas fa-file-pdf me-1" /> 导出当前页面
     </button>
     <div class="row g-4">
-      <div class="col-md-6">
-        <div class="card">
+        <div class="col-md-6">
+          <div class="card system-card">
           <div class="card-header d-flex align-items-center">
-            <i class="fas fa-chart-bar me-2"></i>
-            <span>漏洞类型分布</span>
+            <i class="fas fa-chart-pie me-2"></i>
+            <span>CPU厂商分布</span>
           </div>
           <div class="card-body p-0 chart-container">
-            <canvas ref="typeChartRef" />
+            <canvas ref="cpuVendorCanvas" />
           </div>
         </div>
       </div>
@@ -19,28 +19,37 @@
       <div class="col-md-6">
         <div class="card">
           <div class="card-header d-flex align-items-center">
-            <i class="fas fa-chart-line me-2"></i>
-            <span>历史漏洞趋势</span>
+            <i class="fas fa-shield-alt me-2" />
+            <span>系统安全状态</span>
           </div>
           <div class="card-body p-0 chart-container">
-            <canvas ref="trendChartRef" />
+            <canvas ref="securityStatusCanvas" />
           </div>
         </div>
       </div>
-
-      <div class="col-12">
+      <div class="col-md-6">
         <div class="card">
           <div class="card-header d-flex align-items-center">
-            <i class="fas fa-chart-area me-2"></i>
-            <span>机器风险分布趋势</span>
+            <i class="fas fa-server me-2"></i>
+            <span>内核版本漏洞累计</span>
           </div>
           <div class="card-body p-0 chart-container">
-            <canvas ref="riskTrendChartRef" />
+            <canvas ref="kernelChartRef" />
           </div>
         </div>
       </div>
-
-
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header d-flex align-items-center">
+            <i class="fas fa-microchip me-2"></i>
+            <span>CPU厂商平均漏洞</span>
+          </div>
+          <div class="card-body p-0 chart-container">
+            <canvas ref="cpuAvgChartRef" />
+          </div>
+        </div>
+      </div>
+    </div>
       <div class="row">
         <div class="col-12">
           <div class="card">
@@ -131,7 +140,7 @@
           </div>
         </div>
       </div>
-    </div>
+
   </section>
 </template>
 
@@ -225,41 +234,6 @@ async function fetchAndMergeCveData() {
   }
 }
 
-/**
- * @description Fetches report data and creates the historical trend chart.
- */
-async function createTrendChart() {
-  try {
-    const response = await axios.get('/api/reports/');
-    const machines = response.data.machines;
-    if (!machines || !Array.isArray(machines)) {
-      console.error("Machine data from API is not in the expected format:", machines);
-      return;
-    }
-    const dailyCounts = {};
-    for (const report of machines) {
-      const date = report.report_time.split(' ')[0];
-      dailyCounts[date] = (dailyCounts[date] || 0) + 1;
-    }
-    const sortedDates = Object.keys(dailyCounts).sort((a, b) => new Date(a) - new Date(b));
-    const labels = sortedDates.map(date => {
-        const d = new Date(date);
-        return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-    });
-    const data = sortedDates.map(date => dailyCounts[date]);
-
-    new Chart(trendChartRef.value.getContext('2d'), {
-      type: 'line',
-      data: { labels, datasets: [{
-        label: '每日检测机器数', data, borderColor: '#283593', backgroundColor: 'rgba(40, 53, 147, 0.1)', fill: true, tension: 0.4,
-      }]},
-      options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: '机器检测报告提交趋势' }}},
-    });
-  } catch (error) {
-    console.error("Failed to fetch or process trend data:", error);
-  }
-}
-
 const avgProtectionRate = computed(() => {
   if (!cveData.value.length) return 0;            // 无数据兜底
   const total = cveData.value.reduce(
@@ -314,95 +288,118 @@ const securityStatusCounts = computed(() => {
   })
   return counts        // {Intel: n, AMD: m, Other: k}
 })
-/* ----------- chart : 机器风险分布趋势 ---------- */
-function createRiskTrendChart () {
+
+/* ------------ chart : 内核版本漏洞累计 ----------- */
+const kernelChartRef = ref(null);
+function normalizeVersion(raw) {
+  // 提取形如 5.11.0 的数字段落
+  const match = raw.match(/[0-9]+(?:\.[0-9]+)*/);
+  return match ? match[0] : raw;
+}
+
+function createKernelChart () {
+  if (!machines.value.length) return;
+  const kernelAgg = {}; // {version: {sum: x, count: y}}
+  machines.value.forEach(m => {
+    const versionKey = normalizeVersion((m.kernel || m.kernel_version || '未知').trim());
+    const vulns = m.risk_count ?? 0; // 假设 risk_count 为机器漏洞数
+    if (!kernelAgg[versionKey]) kernelAgg[versionKey] = { sum: 0, count: 0 };
+    kernelAgg[versionKey].sum += vulns;
+    kernelAgg[versionKey].count += 1;
+  });
+  const labels = Object.keys(kernelAgg);
+  const data = labels.map(v => {
+    const { sum, count } = kernelAgg[v];
+    return count ? parseFloat((sum / count).toFixed(2)) : 0;
+  });
+  new Chart(kernelChartRef.value.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '平均漏洞数', data, backgroundColor: '#5c6bc0' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: '不同内核版本平均漏洞数' }
+      },
+      scales: {
+        x: { title: { display: true, text: '内核版本' } },
+        y: { beginAtZero: true, title: { display: true, text: '平均漏洞数' } }
+      }
+    }
+  });
+}
+
+// --- 新增图表: CPU厂商平均漏洞数 ---
+const cpuAvgChartRef = ref(null);
+function createCpuAvgChart() {
   if (!machines.value.length) return;
 
-  // 聚合到日维度，同时计算截止当日的累计值
-  const daily = {};
-  machines.value.forEach(m => {
-    const date = m.report_time.split(' ')[0];
-    if (!daily[date]) daily[date] = { total: 0, medium: 0, high: 0 };
-    daily[date].total += 1;
-    if (m.risk_count >= 5) daily[date].high += 1;
-    else if (m.risk_count > 0) daily[date].medium += 1;
+  // 1. 初始化聚合对象
+  const vendorAgg = {
+    Intel: { totalVulns: 0, machineCount: 0 },
+    AMD: { totalVulns: 0, machineCount: 0 },
+    Other: { totalVulns: 0, machineCount: 0 },
+  };
+
+  // 2. 遍历机器数据并聚合
+  machines.value.forEach(machine => {
+    const cpu = (machine.cpu || '').toLowerCase();
+    const riskCount = machine.risk_count ?? 0;
+    
+    if (cpu.includes('intel')) {
+      vendorAgg.Intel.totalVulns += riskCount;
+      vendorAgg.Intel.machineCount++;
+    } else if (cpu.includes('amd')) {
+      vendorAgg.AMD.totalVulns += riskCount;
+      vendorAgg.AMD.machineCount++;
+    } else {
+      vendorAgg.Other.totalVulns += riskCount;
+      vendorAgg.Other.machineCount++;
+    }
   });
 
-  const sortedDates = Object.keys(daily).sort((a, b) => new Date(a) - new Date(b));
-  const labels = sortedDates.map(d => {
-    const dt = new Date(d);
-    return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
-  });
+  // 3. 计算平均值
+  const avgIntel = vendorAgg.Intel.machineCount > 0 ? parseFloat((vendorAgg.Intel.totalVulns / vendorAgg.Intel.machineCount).toFixed(2)) : 0;
+  const avgAmd = vendorAgg.AMD.machineCount > 0 ? parseFloat((vendorAgg.AMD.totalVulns / vendorAgg.AMD.machineCount).toFixed(2)) : 0;
+  const avgOther = vendorAgg.Other.machineCount > 0 ? parseFloat((vendorAgg.Other.totalVulns / vendorAgg.Other.machineCount).toFixed(2)) : 0;
 
-  // 累积曲线
-  let totalRunning = 0, mediumRunning = 0, highRunning = 0;
-  const totalData  = [];
-  const mediumData = [];
-  const highData   = [];
-  const fixedData   = [1,2,3,4,5]; 
-  for (const d of sortedDates) {
-    totalRunning  += daily[d].total;
-    mediumRunning += daily[d].medium;
-    highRunning   += daily[d].high;
-    totalData.push(totalRunning);
-    mediumData.push(mediumRunning);
-    highData.push(highRunning);
-  }
-
-  new Chart(riskTrendChartRef.value.getContext('2d'), {
-    type: 'line',
+  // 4. 创建图表
+  new Chart(cpuAvgChartRef.value.getContext('2d'), {
+    type: 'bar',
     data: {
-      labels,
-      datasets: [
-        {
-          label: '总机器数',
-          data: totalData,
-          borderColor: '#283593',
-          backgroundColor: 'rgba(40,53,147,.15)',
-          fill: true,
-          tension: 0.3,
-        },
-        {
-          label: '中度风险',
-          data: mediumData,
-          borderColor: '#ff9800',
-          backgroundColor: 'rgba(255,152,0,.15)',
-          fill: false,
-          tension: 0.3,
-        },
-        {
-          label: '高风险',
-          data: highData,
-          borderColor: '#dc3545',
-          backgroundColor: 'rgba(220,53,69,.15)',
-          fill: false,
-          tension: 0.3,
-        },
-        {
-          label: '已修复',
-          data: fixedData,
-          borderColor: '#198754',
-          backgroundColor: 'rgba(25,135,84,.15)',
-          fill: false,
-          tension: 0.3,
-        },
-      ],
+      labels: ['Intel', 'AMD', '其他'],
+      datasets: [{
+        label: '平均风险漏洞数',
+        data: [avgIntel, avgAmd, avgOther],
+        backgroundColor: ['#0d6efd', '#dc3545', '#6c757d'],
+        borderColor: ['#0d6efd', '#dc3545', '#6c757d'],
+        borderWidth: 1
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom' },
-        title: { display: true, text: '机器风险累积曲线' },
+        legend: {
+          display: false
+        },
+        title: {
+          display: true,
+          text: '各CPU厂商的平均风险漏洞数'
+        }
       },
       scales: {
-        y: { beginAtZero: true }
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: '平均漏洞数'
+          }
+        }
       }
-    },
+    }
   });
 }
-
-
 // 导出 PDF 功能
 import html2pdf from 'html2pdf.js'
 function exportPdf () {
@@ -422,24 +419,58 @@ function exportPdf () {
 onMounted(async() => {
   await fetchData();
 
-  new Chart(typeChartRef.value.getContext('2d'), {
-    type: 'bar',
+  // 创建所有图表
+  new Chart(cpuVendorCanvas.value.getContext('2d'), {
+    type: 'doughnut',
     data: {
-      labels: ['推测执行漏洞', '侧信道攻击', '缓存攻击', '其他硬件漏洞'],
+      labels: ['Intel', 'AMD' ,'其他'],
       datasets: [
-        { label: '漏洞数量', data: [10, 8, 1, 1], backgroundColor: ['#283593', '#5c6bc0', '#ff4081', '#ffc107'] },
-      ],
+        {
+          data: [vendorCounts.value.Intel, vendorCounts.value.AMD, vendorCounts.value.Other],
+          backgroundColor: ['#0d6efd', '#dc3545', '#6c757d'],
+          borderWidth: 0
+        }
+      ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '基于20个CVE漏洞的类型分析' }},
-    },
-  });
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      },
+      cutout: '60%'
+    }
+  })
 
-  createRiskTrendChart();
+  new Chart(securityStatusCanvas.value.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['存在风险', '相对安全'],
+      datasets: [
+        {
+          data: [securityStatusCounts.value['danger'], securityStatusCounts.value['safe']],
+          backgroundColor: ['#dc3545', '#198754'],
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      cutout: '60%'
+    }
+  })
+
+  createKernelChart();
+  createCpuAvgChart(); // <-- 调用新图表的创建函数
   
   await Promise.all([
     fetchAndMergeCveData(),
-    createTrendChart()
   ]);
 });
 

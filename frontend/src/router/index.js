@@ -4,6 +4,7 @@ import LayoutBlank from '@/layouts/LayoutBlank.vue'
 import Dashboard from "@/pages/Dashboard.vue";
 import Upload from "@/pages/Upload.vue";
 import Charts from "@/pages/Charts.vue";
+import Charts2 from "@/pages/Charts2.vue";
 import Reports from "@/pages/Reports.vue";
 import Results from "@/pages/Results.vue";
 import Settings from "@/pages/Settings.vue";
@@ -17,7 +18,8 @@ export default createRouter({
     children: [
       { path: "/", component: Dashboard },
       { path: "/upload", component: Upload },
-      { path: '/charts', component: Charts },
+      { path: '/charts1', component: Charts },
+      { path: '/charts2', component: Charts2 },
       { path: '/reports', component: Reports },
       { path: '/results', component: Results },
       { path: '/settings', component: Settings },

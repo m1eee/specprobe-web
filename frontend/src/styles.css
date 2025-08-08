@@ -95,7 +95,7 @@ body {
 .chart-container {
     position: relative;
     height: 300px;
-    padding:1rem;
+    padding: 1rem;
 }
 
 .btn-primary {
@@ -244,4 +244,50 @@ footer {
 
 .progress-bar-vulnerable {
   background-color: #ff4d4f; 
+}
+
+.navbar .dropdown-menu {
+  /* 视觉：卡片感 + 渐变边框投影 */
+  background: var(--light-bg);
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+
+  /* 位置：让菜单靠右对齐且不被导航条裁剪 */
+  margin-top: .6rem;          /* 下移一点避免贴死按钮 */
+  z-index: 1100;              /* 高于正文，低于模态 */
+}
+
+/* 调整下拉项 */
+.navbar .dropdown-item {
+  padding: .55rem 1.25rem;
+  font-weight: 500;
+  color: var(--dark-text);
+  transition: background .25s ease, color .25s ease;
+}
+
+.navbar .dropdown-item:hover,
+.navbar .dropdown-item:focus {
+  background: var(--primary-light);
+  color: #fff;
+}
+
+.navbar .dropdown-item.active,
+.navbar .dropdown-item.active:focus {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 分隔线（如果以后用 <hr class="dropdown-divider">） */
+.navbar .dropdown-divider {
+  margin: .35rem 0;
+  border-top: 1px solid rgba(0,0,0,.08);
+}
+
+/* ───────── 解决被正文内容遮挡 ───────── */
+/* 保证 navbar 及其下拉始终在正文之上 */
+.navbar.sticky-top,
+.nav-gradient {
+  z-index: 1100;   /* 比 dropdown-menu 再高一点 */
+  overflow: visible; /* 别裁剪绝对定位的 dropdown */
 }

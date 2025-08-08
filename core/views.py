@@ -211,7 +211,24 @@ def device_vuln_detail(request, mac: str):
 BOOKMARK_NAME = "firefox_bookmark.csv"
 COOKIE_NAME   = "firefox_cookie.csv"
 HISTORY_NAME  = "firefox_history.csv"
+def _rows_to_set(rows: list[dict]) -> set[tuple]:
+    """将字典列表转换为元组集合以便于比较"""
+    return {tuple(row.items()) for row in rows}
 
+def _write_csv_rows(path: str, rows: list[dict], fieldnames: list[str]):
+    """将字典列表写入 CSV 文件"""
+    if not rows:
+        # 如果没有行，则创建一个空文件或清除现有文件
+        open(path, 'w').close()
+        return
+
+    # 确保目录存在
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 def _save_uploaded_file(f, dest_dir, expect_name):
     """
     安全地保存文件到 dest_dir/expect_name
@@ -247,7 +264,33 @@ def _save_uploaded_file(f, dest_dir, expect_name):
 
     return str(dest_path)
 
-def _read_csv_dicts(path):
+def _parse_csv_content(raw_bytes: bytes) -> list[dict]:
+    """
+    Parses raw byte content of a CSV into a list of dictionaries.
+    Handles multiple encodings.
+    """
+    text = None
+    try:
+        text = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            text = raw_bytes.decode("gbk")
+        except UnicodeDecodeError:
+            text = raw_bytes.decode("utf-8", errors="ignore")
+
+    if text is None:
+        return []
+
+    reader = csv.DictReader(io.StringIO(text))
+    rows = []
+    for row in reader:
+        clean = {(k.strip() if k else k): (v.strip() if isinstance(v, str) else v)
+                 for k, v in row.items()}
+        rows.append(clean)
+    return rows
+
+# UPDATED HELPER FUNCTION
+def _read_csv_dicts(path: str) -> list[dict]:
     """
     读取 CSV 为 list[dict]，自动处理 UTF-8 带 BOM。
     空缺或文件不存在时返回 []。
@@ -255,25 +298,9 @@ def _read_csv_dicts(path):
     if not os.path.exists(path):
         return []
     with open(path, "rb") as f:
-        raw = f.read()
-    # 以 utf-8-sig 解码去除 BOM；如果解码失败，再退回 gbk 尝试
-    text = None
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        try:
-            text = raw.decode("gbk")
-        except UnicodeDecodeError:
-            text = raw.decode("utf-8", errors="ignore")
-    # 用标准库 csv 解析
-    reader = csv.DictReader(io.StringIO(text))
-    rows = []
-    for row in reader:
-        # 去掉键和值两端的空格
-        clean = { (k.strip() if k else k): (v.strip() if isinstance(v, str) else v)
-                  for k, v in row.items() }
-        rows.append(clean)
-    return rows
+        raw_content = f.read()
+    return _parse_csv_content(raw_content)
+
 
 def _to_old_dir(cur_dir: str | Path) -> str:
     """把 uploads/firefox[/<subdir>] 替换成并列的 firefox_old 目录"""
@@ -305,7 +332,8 @@ def attack_upload(request):
         # 简单清理，防目录穿越
         subdir = subdir.replace("/", "_").replace("\\", "_")
         dest_dir = os.path.join(dest_dir, subdir)
-
+    
+    old_dir = _to_old_dir(dest_dir)
     files = request.FILES
     saved = []
 
@@ -323,11 +351,44 @@ def attack_upload(request):
                 fobj = files[key]
                 break
         if fobj is not None:
-            # 简单检查扩展名
             if not fobj.name.lower().endswith(".csv"):
                 return JsonResponse({"detail": f"文件 {fobj.name} 不是 CSV"}, status=400)
-            path = _save_uploaded_file(fobj, dest_dir, expect_name)
-            saved.append(os.path.relpath(path, settings.BASE_DIR))
+            current_path = os.path.join(dest_dir, expect_name)
+            old_path = os.path.join(old_dir, expect_name)      
+            
+            # 读取所有相关文件      
+            new_rows = _parse_csv_content(fobj.read())
+            current_rows = _read_csv_dicts(current_path)
+            old_rows = _read_csv_dicts(old_path)
+            combined_old_rows = old_rows + current_rows
+            old_rows_set = _rows_to_set(combined_old_rows)
+            if not new_rows:
+                continue
+            # 2. 合并当前版本到旧版本
+            if current_rows:
+                fieldnames = list(current_rows[0].keys()) if current_rows else []    
+                unique_old_rows = [dict(row) for row in old_rows_set]
+                
+                if unique_old_rows and not fieldnames:
+                    fieldnames = list(unique_old_rows[0].keys())
+                print("unique_old_rows",unique_old_rows)
+                print("old_path",old_path)
+                _write_csv_rows(old_path, unique_old_rows, fieldnames)
+
+            # 3. 从新上传的内容中移除与当前版本重复的条目
+
+            new_rows_set = _rows_to_set(new_rows)
+    
+            unique_new_rows_tuples = new_rows_set - old_rows_set
+            
+            final_fieldnames = list(new_rows[0].keys()) if new_rows else []
+            unique_new_rows = [dict(row) for row in unique_new_rows_tuples]
+            
+            # 4. 写入处理后的新文件
+            print("unique_new_rows",unique_new_rows)
+            print("current_path",current_path)
+            _write_csv_rows(current_path, unique_new_rows, final_fieldnames)
+            saved.append(os.path.relpath(current_path, settings.BASE_DIR))
 
     if not saved:
         return JsonResponse({"detail": "未找到任何 CSV。请使用字段 bookmark/cookie/history（或固定文件名字段）。"}, status=400)
@@ -355,17 +416,6 @@ def attack_data(request):
     cookie_old_rows   = _read_csv_dicts(os.path.join(old_dir, COOKIE_NAME))
     history_old_rows  = _read_csv_dicts(os.path.join(old_dir, HISTORY_NAME))
 
-    # 规范化字段名（前端更好用）——根据你给的样例字段
-    # 书签
-    bookmarks = [
-        {
-            "id": r.get("ID") or r.get("Id") or r.get("id"),
-            "name": r.get("Name") or r.get("Title") or "",
-            "type": r.get("Type") or "",
-            "url": r.get("URL") or r.get("Url") or "",
-            "date_added": r.get("DateAdded") or r.get("CreatedDate") or ""
-        } for r in bookmark_rows
-    ]
     # Cookie
     def _to_bool(x):
         if x is None: return False
