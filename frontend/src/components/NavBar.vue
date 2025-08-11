@@ -60,6 +60,18 @@ const nav = [
   { path: '/', label: '首页', icon: 'fas fa-home', exact: true },
   { path: '/upload', label: '上传报告', icon: 'fas fa-upload' },
   { path: '/reports', label: '报告列表', icon: 'fas fa-list' },
+  { path: '/charts1', label: '分析图表', icon: 'fas fa-chart-bar' },
+  { path: '/settings', label: '设置', icon: 'fas fa-cog' },
+]
+
+
+
+/*
+// 顶栏导航配置
+const nav = [
+  { path: '/', label: '首页', icon: 'fas fa-home', exact: true },
+  { path: '/upload', label: '上传报告', icon: 'fas fa-upload' },
+  { path: '/reports', label: '报告列表', icon: 'fas fa-list' },
   {
     label: '分析图表',
     icon: 'fas fa-chart-bar',
@@ -70,5 +82,7 @@ const nav = [
   },
   { path: '/settings', label: '设置', icon: 'fas fa-cog' },
 ]
+*/
 </script>
+
 

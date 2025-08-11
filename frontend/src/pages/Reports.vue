@@ -45,7 +45,7 @@
                 <th>报告ID</th>
                 <th>MAC地址</th>
                 <th>CPU型号</th>
-                <th>处理器架构</th>
+                <th>系统版本</th>
                 <th>内核版本</th>
                 <th>漏洞总数</th>
                 <th>风险漏洞</th>
@@ -63,7 +63,7 @@
                   <i class="fas fa-microchip me-1 text-primary" />{{ report.cpu }}
                 </td>
                 <td>
-                  <i class="fas fa-microchip me-1 text-info" />{{ report.architecture }}
+                  <i class="fas fa-desktop me-1 text-info" />{{ report.os }}
                 </td>
                 <td><code class="text-info">{{ report.kernel }}</code></td>
                 <td><span class="badge bg-info">{{ report.vuln_count }}</span></td>
@@ -156,217 +156,6 @@
         </section>
       </div>
     </div>
-    <!-- CVE 防护情况汇总表 -->
-    <div class="card">
-      <div
-        class="card-header d-flex align-items-center justify-content-between"
-      >
-        <div class="d-flex align-items-center">
-          <i class="fas fa-shield-alt me-2" />
-          <span>CVE防护情况汇总表</span>
-          <small class="ms-3 text-light opacity-75">
-            基于已提交的 {{ stats.total_machines }} 台机器检测数据
-          </small>
-        </div>
-        <div class="d-flex gap-3">
-          <div class="d-flex align-items-center">
-            <span class="badge bg-success me-2">●</span>
-            <small>已防护</small>
-          </div>
-          <div class="d-flex align-items-center">
-            <span class="badge bg-danger me-2">●</span>
-            <small>未防护</small>
-          </div>
-        </div>
-      </div>
-      <div class="card-body">
-        <!-- 提示信息 -->
-        <div
-          v-if="showInfo && stats.total_machines > 0"
-          class="alert alert-info alert-dismissible fade show mb-4"
-          role="alert"
-        >
-          <i class="fas fa-info-circle me-2"></i>
-          <strong>数据说明：</strong>下表显示了基于您提交的
-          <strong>{{ stats.total_machines }}</strong> 台机器检测报告生成的 CVE 防护状态汇总。
-          每当您上传新的检测报告，此表会自动更新以包含新机器的防护状态。
-          <button
-            type="button"
-            class="btn-close"
-            aria-label="Close"
-            @click="showInfo = false"
-          ></button>
-        </div>
-      
-        <!-- 机器概览 -->
-        <div v-if="machines.length" class="row mb-4">
-          <div class="d-flex align-items-center flex-wrap mb-3">
-            <div class="me-2">
-              <h6 class="text-muted mb-0">
-                <i class="fas fa-server me-2"></i>已检测机器概览
-              </h6>
-            </div>
-            <!-- 排序工具条-->
-            <div class="d-flex align-items-center gap-2 flex-wrap ms-3 ms-md-4 mt-2 mt-md-0">
-              <span class="text-muted small me-2">排序：</span>
-              <select v-model="sortKey" class="form-select form-select-sm w-auto">
-                <option value="mac">MAC</option>
-                <option value="os">OS</option>
-                <option value="cpu">CPU</option>
-                <option value="kernel">Kernel</option>
-                <option value="time">Time</option>
-              </select>
-              <button type="button" class="btn btn-sm btn-outline-secondary" @click="toggleSortOrder">
-                <i :class="sortOrder === 'asc' ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"></i>
-                {{ sortOrder === 'asc' ? '正序' : '逆序' }}
-              </button>
-            </div>
-            <!-- 搜索框-->
-            <div class="ms-auto mt-2 mt-md-0 flex-grow-1" style="max-width: 600px;">
-              <input v-model.trim="query" type="text" class="form-control"
-                    placeholder="按 MAC / OS / CPU / Kernel / Time 关键字搜索" />
-            </div>
-          </div>
-          <div
-            v-for="machine in pagedReports"
-            :key="machine.id"
-            class="col-md-4 col-lg-2 mb-3"
-          >
-            <div
-              class="card border-0 bg-light h-100 machine-card"
-              role="button"
-              tabindex="0"
-              @click="openDetail(macOf(machine))"
-              @keydown.enter.prevent="openDetail(macOf(machine))"
-              @keydown.space.prevent="openDetail(macOf(machine))"
-            >
-              <div class="card-body p-3">
-                <div class="d-flex align-items-center mb-2">
-                  <i class="fas fa-desktop text-primary me-2" />
-                  <h6 class="card-title mb-0 small">{{ machine.name }}</h6>
-                </div>
-                <div class="small text-muted">
-                  <div class="mb-1">
-                    <i class="fab fa-linux me-1" />{{ machine.os }}
-                  </div>
-                  <div class="mb-1 text-truncate" :title="machine.cpu">
-                    <i class="fas fa-microchip me-1" />{{ machine.cpu }}
-                  </div>
-                  <div class="mb-1">
-                    <i class="fas fa-code-branch me-1" />{{ machine.kernel }}
-                  </div>
-                  <div class="mb-1">
-                    <i class="fas fa-clock me-1" />
-                    {{ machine.report_time.split(' ')[0] }}
-                  </div>
-                  <div class="d-flex justify-content-between">
-                    <span class="badge bg-primary small">{{ machine.vuln_count }}CVE</span>
-                    <span
-                      :class="[
-                        'badge small',
-                        machine.risk_count > 0 ? 'bg-warning' : 'bg-success'
-                      ]"
-                      >{{ machine.risk_count > 0 ? machine.risk_count + '风险' : '安全' }}</span
-                    >
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 分页条 -->
-        <nav class="d-flex flex-wrap justify-content-between align-items-center mt-3">
-          <!-- 左侧统计 -->
-          <div class="text-muted small mb-2 mb-md-0">
-            共 {{ sortedReports.length }} 台，页 {{ page }} / {{ totalPages }}
-          </div>
-
-          <!-- 右侧控件：页码 + 每页条数 -->
-          <div class="d-flex align-items-center gap-2">
-            <ul class="pagination pagination-sm mb-0">
-              <li class="page-item" :class="{ disabled: page === 1 }">
-                <a class="page-link" href="javascript:void(0)" @click="page > 1 && (page = page - 1)">上一页</a>
-              </li>
-
-              <li v-for="p in pagesToShow" :key="p"
-                  class="page-item" :class="{ active: p === page }">
-                <a class="page-link" href="javascript:void(0)" @click="page = p">{{ p }}</a>
-              </li>
-
-              <li class="page-item" :class="{ disabled: page === totalPages }">
-                <a class="page-link" href="javascript:void(0)" @click="page < totalPages && (page = page + 1)">下一页</a>
-              </li>
-            </ul>
-
-            <!-- 每页条数 -->
-            <select v-model.number="pageSize" class="form-select form-select-sm w-auto">
-              <option :value="6">每页 6</option>
-              <option :value="12">每页 12</option>
-              <option :value="24">每页 24</option>
-            </select>
-          </div>
-        </nav>
-
-        <!-- 统计信息卡片 -->
-        <div v-if="machines.length" class="row mt-4">
-          <div class="col-md-3">
-            <div class="card text-center border-primary">
-              <div class="card-body">
-                <h5 class="card-title text-primary">20</h5>
-                <p class="card-text small text-muted">检测的CVE数量</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card text-center border-success">
-              <div class="card-body">
-                <h5 class="card-title text-success">{{ stats.fully_protected }}</h5>
-                <p class="card-text small text-muted">完全防护的CVE</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card text-center border-warning">
-              <div class="card-body">
-                <h5 class="card-title text-warning">{{ stats.partially_protected }}</h5>
-                <p class="card-text small text-muted">部分防护的CVE</p>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="card text-center border-danger">
-              <div class="card-body">
-                <h5 class="card-title text-danger">{{ stats.unprotected }}</h5>
-                <p class="card-text small text-muted">未防护的CVE</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 操作建议 -->
-        <div v-if="machines.length" class="mt-4">
-          <div class="card border-info">
-            <div class="card-body">
-              <h6 class="card-title text-info">
-                <i class="fas fa-lightbulb me-2" />操作建议
-              </h6>
-              <ul class="list-unstyled mb-0">
-                <li class="mb-2">
-                  <i class="fas fa-upload text-primary me-2" />上传更多机器的检测报告以获得更全面的防护状态分析
-                </li>
-                <li class="mb-2">
-                  <i class="fas fa-exclamation-triangle text-warning me-2" />重点关注防护率低于80%的CVE漏洞，及时应用安全补丁
-                </li>
-                <li>
-                  <i class="fas fa-sync text-info me-2" />定期重新检测以确保防护措施的有效性
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -378,7 +167,6 @@ const reports = ref([])
 const machines = ref([])
 const vulnerabilities = ref([])
 const stats = ref({})
-const showInfo = ref(true)   // 初始显示
 
 // ==== 搜索关键字 ====
 const query = ref('')
@@ -389,7 +177,6 @@ const filteredReports = computed(() => {
 
   const q = query.value.toLowerCase()
   return reports.value.filter(r => {
-    // 按需把字段名改成你真实接口里的键
     return [
       r.name,          // 设备名 / 主机名
       r.os,            // 操作系统
@@ -413,10 +200,6 @@ const SORT_GETTERS = {
   cpu:    (m) => m.cpu || '',
   kernel: (m) => m.kernel || '',
   time:   (m) => m.report_time || m.time || ''
-}
-
-function toggleSortOrder () {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
 }
 
 const sortedReports = computed(() => {
@@ -450,30 +233,12 @@ async function fetchData() {
 
 // ===== 分页状态 =====
 const page = ref(1)            // 当前页
-const pageSize = ref(6)       // 每页条数（建议 6/12/24 等）
+const pageSize = ref(12)       // 每页条数（建议 6/12/24 等）
 
 // 总页数
 const totalPages = computed(() => {
   const total = sortedReports.value.length
   return Math.max(1, Math.ceil(total / pageSize.value))
-})
-
-// 当前页要显示的数据（基于 sortedReports 再分页）
-const pagedReports = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return sortedReports.value.slice(start, end)
-})
-
-// 页码列表（最多展示 5 个页码，当前页在中间）
-const pagesToShow = computed(() => {
-  const t = totalPages.value
-  const cur = page.value
-  const win = 5
-  let start = Math.max(1, cur - Math.floor(win / 2))
-  let end = Math.min(t, start + win - 1)
-  start = Math.max(1, end - win + 1)
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 })
 
 // ===== 当搜索或排序变化时，自动回到第 1 页 =====
@@ -591,7 +356,7 @@ const historySortedReports = computed(() => {
 
 // 分页
 const historyPage = ref(1)
-const historyPageSize = ref(6)
+const historyPageSize = ref(12)
 
 const historyTotalPages = computed(() => {
   const total = historySortedReports.value.length
@@ -626,10 +391,6 @@ watchEffect(() => {
     historyPage.value = historyTotalPages.value
   }
 })
-
-
-// 机器对象里 MAC 字段可能有不同命名，这里做个兜底
-const macOf = (m) => m?.mac || m?.mac_address || m?.MAC || ''
 
 
 onMounted(fetchData)

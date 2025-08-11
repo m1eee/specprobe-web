@@ -17,6 +17,45 @@
     <div v-else class="data-grid">
       <div class="data-panel">
         <div class="panel-header">
+          <i class="fas fa-history me-2"></i>
+          <span>History_Log [{{ processedHistory.length }}]</span>
+        </div>
+        <div class="panel-body">
+            <input v-model="searchHistory" type="text" class="filter-input" placeholder="filter by title or url...">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th @click="sort('history', 'title')" class="c-pointer">Title <i :class="getSortIcon('history', 'title')"></i></th>
+                        <th @click="sort('history', 'url')" class="c-pointer">URL <i :class="getSortIcon('history', 'url')"></i></th>
+                        <th @click="sort('history', 'visit_count')" class="c-pointer" style="width: 100px;">Visits <i :class="getSortIcon('history', 'visit_count')"></i></th>
+                        <th @click="sort('history', 'last_visit_time')" class="c-pointer" style="width: 200px;">Last Visit <i :class="getSortIcon('history', 'last_visit_time')"></i></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="(r, i) in paginatedHistory" :key="i" :class="{'new-data-entry': r.isNew}">
+                        <td :class="{'row-new': r.isNew}" :title="r.title">{{ r.title }}</td>
+                        <td :class="{'row-new': r.isNew}"><a :href="r.url" target="_blank" rel="noreferrer" class="text-break">{{ r.url }}</a></td>
+                        <td :class="{'row-new': r.isNew}">{{ r.visit_count }}</td>
+                        <td :class="{'row-new': r.isNew}">{{ r.last_visit_time }}</td>
+                    </tr>
+                    <tr v-if="paginatedHistory.length === 0">
+                        <td colspan="4" class="no-data">// no matching entries</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+             <nav v-if="totalPagesHistory > 1" class="pagination-container">
+                <div class="page-info">Page {{ currentPageHistory }} / {{ totalPagesHistory }}</div>
+                <div class="pagination-controls">
+                  <a href="#" @click.prevent="currentPageHistory--" :class="{ disabled: currentPageHistory === 1 }">&lt;&lt; PREV</a>
+                  <a href="#" @click.prevent="currentPageHistory++" :class="{ disabled: currentPageHistory >= totalPagesHistory }">NEXT &gt;&gt;</a>
+                </div>
+            </nav>
+        </div>
+      </div>
+      <div class="data-panel">
+        <div class="panel-header">
           <i class="fas fa-bookmark me-2"></i>
           <span>Bookmarks_Log [{{ processedBookmarks.length }}]</span>
         </div>
@@ -106,46 +145,6 @@
             </nav>
         </div>
       </div>
-
-      <div class="data-panel">
-        <div class="panel-header">
-          <i class="fas fa-history me-2"></i>
-          <span>History_Log [{{ processedHistory.length }}]</span>
-        </div>
-        <div class="panel-body">
-            <input v-model="searchHistory" type="text" class="filter-input" placeholder="filter by title or url...">
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                    <tr>
-                        <th @click="sort('history', 'title')" class="c-pointer">Title <i :class="getSortIcon('history', 'title')"></i></th>
-                        <th @click="sort('history', 'url')" class="c-pointer">URL <i :class="getSortIcon('history', 'url')"></i></th>
-                        <th @click="sort('history', 'visit_count')" class="c-pointer" style="width: 100px;">Visits <i :class="getSortIcon('history', 'visit_count')"></i></th>
-                        <th @click="sort('history', 'last_visit_time')" class="c-pointer" style="width: 200px;">Last Visit <i :class="getSortIcon('history', 'last_visit_time')"></i></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr v-for="(r, i) in paginatedHistory" :key="i" :class="{'new-data-entry': r.isNew}">
-                        <td :class="{'row-new': r.isNew}" :title="r.title">{{ r.title }}</td>
-                        <td :class="{'row-new': r.isNew}"><a :href="r.url" target="_blank" rel="noreferrer" class="text-break">{{ r.url }}</a></td>
-                        <td :class="{'row-new': r.isNew}">{{ r.visit_count }}</td>
-                        <td :class="{'row-new': r.isNew}">{{ r.last_visit_time }}</td>
-                    </tr>
-                    <tr v-if="paginatedHistory.length === 0">
-                        <td colspan="4" class="no-data">// no matching entries</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-             <nav v-if="totalPagesHistory > 1" class="pagination-container">
-                <div class="page-info">Page {{ currentPageHistory }} / {{ totalPagesHistory }}</div>
-                <div class="pagination-controls">
-                  <a href="#" @click.prevent="currentPageHistory--" :class="{ disabled: currentPageHistory === 1 }">&lt;&lt; PREV</a>
-                  <a href="#" @click.prevent="currentPageHistory++" :class="{ disabled: currentPageHistory >= totalPagesHistory }">NEXT &gt;&gt;</a>
-                </div>
-            </nav>
-        </div>
-      </div>
     </div>
   </main>
 </div>
@@ -201,7 +200,7 @@ onMounted(() => {
     loading.value = false;
   });
 
-  const pollFrequency = 1000;
+  const pollFrequency = 1000000000;
   pollingIntervalId = setInterval(fetchData, pollFrequency);
 });
 

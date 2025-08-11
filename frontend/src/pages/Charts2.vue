@@ -249,7 +249,6 @@ const riskRate = computed(() => 100 - avgProtectionRate.value);
 const machines = ref([])
 const cpuVendorCanvas = ref(null)
 const securityStatusCanvas = ref(null)
-const riskTrendChartRef = ref(null);
 const comparisonTable = ref([])
 const fetchData = async () => {
   try {
